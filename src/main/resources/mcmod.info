@@ -1,0 +1,10 @@
+[
+{
+  "modid": "structuredataexporter",
+  "name": "StructureDataExporter",
+  "description": "World scan to Wiki v6 JSON (palette + cellGrid). Commands: /sde",
+  "version": "${modVersion}",
+  "mcversion": "${minecraftVersion}",
+  "authorList": ["WikiMultiStructureRender"]
+}
+]

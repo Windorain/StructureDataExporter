@@ -1,0 +1,6 @@
+/*
+ * 与 MyCTMLib 相同：由 gtnhconvention 引入。Gson 用于写出 Wiki v6 JSON。
+ */
+dependencies {
+    implementation("com.google.code.gson:gson:2.8.9")
+}
