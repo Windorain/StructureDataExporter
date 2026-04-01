@@ -1,4 +1,4 @@
-package com.github.wikimultistructure.sde.sampling;
+package com.github.wikimultistructure.sde.core.sampling;
 
 import net.minecraft.world.World;
 

@@ -1,4 +1,4 @@
-package com.github.wikimultistructure.sde.session;
+package com.github.wikimultistructure.sde.core.session;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -12,10 +12,10 @@ import java.util.TreeMap;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
 
-import com.github.wikimultistructure.sde.export.BlockRegistryExportWriter;
-import com.github.wikimultistructure.sde.sampling.DefaultBlockSampler;
-import com.github.wikimultistructure.sde.sampling.IBlockSampler;
-import com.github.wikimultistructure.sde.scan.StructureScan;
+import com.github.wikimultistructure.sde.core.export.BlockRegistryExportWriter;
+import com.github.wikimultistructure.sde.core.sampling.DefaultBlockSampler;
+import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
+import com.github.wikimultistructure.sde.core.scan.StructureScan;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -60,21 +60,36 @@ public final class ExportSession {
         return inSession;
     }
 
-    public void setPos1(EntityPlayerMP p) {
-        pos1x = floor(p.posX);
-        pos1y = floor(p.posY);
-        pos1z = floor(p.posZ);
+    /** 准星指向的方块角点（pos1），与创世神式选区一致。 */
+    public void setPos1Block(int x, int y, int z) {
+        pos1x = x;
+        pos1y = y;
+        pos1z = z;
     }
 
-    public void setPos2(EntityPlayerMP p) {
-        pos2x = floor(p.posX);
-        pos2y = floor(p.posY);
-        pos2z = floor(p.posZ);
+    /** 准星指向的方块角点（pos2）。 */
+    public void setPos2Block(int x, int y, int z) {
+        pos2x = x;
+        pos2y = y;
+        pos2z = z;
     }
 
-    private static int floor(double d) {
-        int i = (int) d;
-        return d < i ? i - 1 : i;
+    public boolean hasCompleteSelection() {
+        return pos1x != null && pos1y != null && pos1z != null && pos2x != null && pos2y != null && pos2z != null;
+    }
+
+    /** 供网络同步与客户端线框；未完成选区时 {@link SelectionSnapshot#complete} 为 false。 */
+    public SelectionSnapshot getSelectionSnapshot() {
+        if (!hasCompleteSelection()) {
+            return SelectionSnapshot.empty(this.inSession);
+        }
+        int minX = Math.min(pos1x, pos2x);
+        int minY = Math.min(pos1y, pos2y);
+        int minZ = Math.min(pos1z, pos2z);
+        int maxX = Math.max(pos1x, pos2x);
+        int maxY = Math.max(pos1y, pos2y);
+        int maxZ = Math.max(pos1z, pos2z);
+        return new SelectionSnapshot(inSession, true, minX, minY, minZ, maxX, maxY, maxZ);
     }
 
     public void setOutputName(String name) {
@@ -121,8 +136,8 @@ public final class ExportSession {
     }
 
     public void record(EntityPlayerMP player) {
-        if (pos1x == null || pos2x == null) {
-            throw new IllegalStateException("请先 /sde pos1 与 /sde pos2");
+        if (!hasCompleteSelection()) {
+            throw new IllegalStateException("请先 /sde pos1 与 /sde pos2（对准方块）");
         }
         World world = player.worldObj;
         JsonObject obj = StructureScan

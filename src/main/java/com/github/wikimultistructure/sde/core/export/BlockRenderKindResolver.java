@@ -1,4 +1,4 @@
-package com.github.wikimultistructure.sde.export;
+package com.github.wikimultistructure.sde.core.export;
 
 import net.minecraft.block.Block;
 

@@ -1,0 +1,65 @@
+package com.github.wikimultistructure.sde.item;
+
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.world.World;
+
+import com.github.wikimultistructure.sde.StructureDataExporterMod;
+import com.github.wikimultistructure.sde.core.session.ExportSession;
+import com.github.wikimultistructure.sde.network.SdeNetwork;
+import com.github.wikimultistructure.sde.server.SdePermissions;
+
+public class ItemSdeSelectionTool extends Item {
+
+    public ItemSdeSelectionTool() {
+        setCreativeTab(CreativeTabs.tabTools);
+        setUnlocalizedName("sde_tool_select");
+        setTextureName(StructureDataExporterMod.MODID + ":sde_tool_select");
+        setMaxStackSize(1);
+    }
+
+    @Override
+    public boolean onBlockStartBreak(ItemStack stack, int x, int y, int z, EntityPlayer player) {
+        if (player.worldObj.isRemote) {
+            return false;
+        }
+        if (!(player instanceof EntityPlayerMP)) {
+            return false;
+        }
+        EntityPlayerMP mp = (EntityPlayerMP) player;
+        if (!SdePermissions.canUseSde(mp)) {
+            mp.addChatMessage(new ChatComponentText("SDE: 需要 OP 权限"));
+            return false;
+        }
+        ExportSession.get()
+            .setPos1Block(x, y, z);
+        SdeNetwork.sendSelectionSync(mp);
+        mp.addChatMessage(new ChatComponentText("SDE: pos1 已记录（方块）"));
+        return true;
+    }
+
+    @Override
+    public boolean onItemUse(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side, float hitX,
+        float hitY, float hitZ) {
+        if (world.isRemote) {
+            return false;
+        }
+        if (!(player instanceof EntityPlayerMP)) {
+            return false;
+        }
+        EntityPlayerMP mp = (EntityPlayerMP) player;
+        if (!SdePermissions.canUseSde(mp)) {
+            mp.addChatMessage(new ChatComponentText("SDE: 需要 OP 权限"));
+            return false;
+        }
+        ExportSession.get()
+            .setPos2Block(x, y, z);
+        SdeNetwork.sendSelectionSync(mp);
+        mp.addChatMessage(new ChatComponentText("SDE: pos2 已记录（方块）"));
+        return true;
+    }
+}

@@ -1,4 +1,4 @@
-package com.github.wikimultistructure.sde.export;
+package com.github.wikimultistructure.sde.core.export;
 
 /**
  * GT5U 多方块相关方块在白名单中的逻辑分类；与 Wiki {@code logicalKind} 字符串一致。

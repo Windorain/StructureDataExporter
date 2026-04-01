@@ -1,4 +1,4 @@
-package com.github.wikimultistructure.sde.sampling;
+package com.github.wikimultistructure.sde.core.sampling;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;

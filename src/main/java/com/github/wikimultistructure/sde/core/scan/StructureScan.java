@@ -1,4 +1,4 @@
-package com.github.wikimultistructure.sde.scan;
+package com.github.wikimultistructure.sde.core.scan;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -7,8 +7,8 @@ import java.util.Map;
 
 import net.minecraft.world.World;
 
-import com.github.wikimultistructure.sde.sampling.IBlockSampler;
-import com.github.wikimultistructure.sde.sampling.VoxelSample;
+import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
+import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;

@@ -1,4 +1,4 @@
-package com.github.wikimultistructure.sde.export;
+package com.github.wikimultistructure.sde.core.export;
 
 import cpw.mods.fml.common.registry.GameRegistry;
 import net.minecraft.block.Block;

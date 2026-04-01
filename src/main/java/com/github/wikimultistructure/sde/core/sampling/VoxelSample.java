@@ -1,4 +1,4 @@
-package com.github.wikimultistructure.sde.sampling;
+package com.github.wikimultistructure.sde.core.sampling;
 
 /** 单格采样结果，对应 Wiki palette 中一项（无 NBT 时默认实现）。 */
 public final class VoxelSample {

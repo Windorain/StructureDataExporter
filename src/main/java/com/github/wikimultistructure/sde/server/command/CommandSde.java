@@ -1,11 +1,15 @@
-package com.github.wikimultistructure.sde.command;
+package com.github.wikimultistructure.sde.server.command;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.MovingObjectPosition;
 
-import com.github.wikimultistructure.sde.session.ExportSession;
+import com.github.wikimultistructure.sde.core.session.ExportSession;
+import com.github.wikimultistructure.sde.core.util.RayTraceUtil;
+import com.github.wikimultistructure.sde.network.SdeNetwork;
+import com.github.wikimultistructure.sde.server.SdePermissions;
 
 public class CommandSde extends CommandBase {
 
@@ -36,21 +40,25 @@ public class CommandSde extends CommandBase {
             switch (sub) {
                 case "pos1":
                     if (!checkPlayer(sender)) return;
-                    s.setPos1((EntityPlayerMP) sender);
-                    sender.addChatMessage(new ChatComponentText("SDE: pos1 已记录"));
+                    applyPos1FromRay((EntityPlayerMP) sender, s);
                     break;
                 case "pos2":
                     if (!checkPlayer(sender)) return;
-                    s.setPos2((EntityPlayerMP) sender);
-                    sender.addChatMessage(new ChatComponentText("SDE: pos2 已记录"));
+                    applyPos2FromRay((EntityPlayerMP) sender, s);
                     break;
                 case "start":
                     s.startSession();
                     sender.addChatMessage(new ChatComponentText("SDE: 会话已开始"));
+                    if (sender instanceof EntityPlayerMP) {
+                        SdeNetwork.sendSelectionSync((EntityPlayerMP) sender);
+                    }
                     break;
                 case "end":
                     s.endSession();
                     sender.addChatMessage(new ChatComponentText("SDE: 会话已结束"));
+                    if (sender instanceof EntityPlayerMP) {
+                        SdeNetwork.sendSelectionSync((EntityPlayerMP) sender);
+                    }
                     break;
                 case "setname":
                     s.setOutputName(joinArgs(args, 1));
@@ -84,6 +92,36 @@ public class CommandSde extends CommandBase {
         } catch (Exception e) {
             sender.addChatMessage(new ChatComponentText("SDE 错误: " + e.getMessage()));
         }
+    }
+
+    private static void applyPos1FromRay(EntityPlayerMP player, ExportSession s) {
+        if (!SdePermissions.canUseSde(player)) {
+            player.addChatMessage(new ChatComponentText("SDE: 需要 OP 权限"));
+            return;
+        }
+        MovingObjectPosition mop = RayTraceUtil.rayTraceBlock(player, RayTraceUtil.DEFAULT_REACH);
+        if (!RayTraceUtil.isBlockHit(mop)) {
+            player.addChatMessage(new ChatComponentText("SDE: 未指向方块"));
+            return;
+        }
+        s.setPos1Block(mop.blockX, mop.blockY, mop.blockZ);
+        SdeNetwork.sendSelectionSync(player);
+        player.addChatMessage(new ChatComponentText("SDE: pos1 已记录（方块）"));
+    }
+
+    private static void applyPos2FromRay(EntityPlayerMP player, ExportSession s) {
+        if (!SdePermissions.canUseSde(player)) {
+            player.addChatMessage(new ChatComponentText("SDE: 需要 OP 权限"));
+            return;
+        }
+        MovingObjectPosition mop = RayTraceUtil.rayTraceBlock(player, RayTraceUtil.DEFAULT_REACH);
+        if (!RayTraceUtil.isBlockHit(mop)) {
+            player.addChatMessage(new ChatComponentText("SDE: 未指向方块"));
+            return;
+        }
+        s.setPos2Block(mop.blockX, mop.blockY, mop.blockZ);
+        SdeNetwork.sendSelectionSync(player);
+        player.addChatMessage(new ChatComponentText("SDE: pos2 已记录（方块）"));
     }
 
     private static boolean checkPlayer(ICommandSender sender) {
