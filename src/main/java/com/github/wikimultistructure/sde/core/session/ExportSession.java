@@ -3,8 +3,8 @@ package com.github.wikimultistructure.sde.core.session;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.io.OutputStreamWriter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -12,7 +12,7 @@ import java.util.TreeMap;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
 
-import com.github.wikimultistructure.sde.core.export.BlockRegistryExportWriter;
+import com.github.wikimultistructure.sde.core.export.PendingBundleFiles;
 import com.github.wikimultistructure.sde.core.sampling.DefaultBlockSampler;
 import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
 import com.github.wikimultistructure.sde.core.scan.StructureScan;
@@ -145,6 +145,10 @@ public final class ExportSession {
         frameJson.put(activeFrame, GSON.toJson(obj));
     }
 
+    /**
+     * 写出结构 JSON 到 {@code structure_exports}，并写入 {@link PendingBundleFiles#FILE_NAME}，
+     * 供客户端下一 tick 起读取并生成 block_registry / material_registry / assets（无自定义网络包）。
+     */
     public String exportToFile() throws IOException {
         File dir = new File("structure_exports");
         if (!dir.exists() && !dir.mkdirs()) {
@@ -157,36 +161,44 @@ public final class ExportSession {
         }
 
         JsonArray paletteUnion = collectPaletteUnion();
-        File regOut = new File(dir, outputName + ".block_registry.json");
-        writeUtf8(regOut, GSON.toJson(BlockRegistryExportWriter.buildRegistryRoot(paletteUnion)));
 
         if (frameJson.size() == 1 && frameJson.containsKey(0)) {
             String json = frameJson.get(0);
             writeUtf8(out, json);
-            return out.getAbsolutePath();
+        } else {
+            JsonObject world = new JsonObject();
+            world.addProperty("schemaVersion", 1);
+            world.addProperty("id", structureId);
+            JsonArray frames = new JsonArray();
+            JsonParser parser = new JsonParser();
+            for (Map.Entry<Integer, String> e : frameJson.entrySet()) {
+                JsonObject fr = new JsonObject();
+                fr.addProperty("index", e.getKey());
+                JsonObject nested = parser.parse(e.getValue())
+                    .getAsJsonObject();
+                fr.add("structure", nested);
+                frames.add(fr);
+            }
+            world.add("frames", frames);
+            JsonObject playback = new JsonObject();
+            playback.addProperty("loop", false);
+            playback.addProperty("defaultFrameIndex", 0);
+            world.add("playback", playback);
+
+            writeUtf8(out, GSON.toJson(world));
         }
 
-        JsonObject world = new JsonObject();
-        world.addProperty("schemaVersion", 1);
-        world.addProperty("id", structureId);
-        JsonArray frames = new JsonArray();
-        JsonParser parser = new JsonParser();
-        for (Map.Entry<Integer, String> e : frameJson.entrySet()) {
-            JsonObject fr = new JsonObject();
-            fr.addProperty("index", e.getKey());
-            JsonObject nested = parser.parse(e.getValue())
-                .getAsJsonObject();
-            fr.add("structure", nested);
-            frames.add(fr);
-        }
-        world.add("frames", frames);
-        JsonObject playback = new JsonObject();
-        playback.addProperty("loop", false);
-        playback.addProperty("defaultFrameIndex", 0);
-        world.add("playback", playback);
-
-        writeUtf8(out, GSON.toJson(world));
+        writePendingBundleFile(dir, paletteUnion);
         return out.getAbsolutePath();
+    }
+
+    private void writePendingBundleFile(File exportDir, JsonArray palette) throws IOException {
+        JsonObject root = new JsonObject();
+        root.addProperty("schemaVersion", PendingBundleFiles.SCHEMA_VERSION);
+        root.addProperty("outputName", outputName);
+        root.addProperty("exportRoot", exportDir.getAbsolutePath());
+        root.add("palette", palette);
+        writeUtf8(new File(exportDir, PendingBundleFiles.FILE_NAME), GSON.toJson(root));
     }
 
     private static void writeUtf8(File file, String content) throws IOException {

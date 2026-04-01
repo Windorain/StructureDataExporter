@@ -78,8 +78,11 @@ public class CommandSde extends CommandBase {
                     sender.addChatMessage(new ChatComponentText("SDE: 已写入内存帧 " + s.getActiveFrame() + "（未落盘）"));
                     break;
                 case "export":
+                    if (!checkPlayer(sender)) return;
                     String path = s.exportToFile();
-                    sender.addChatMessage(new ChatComponentText("SDE: 已写出 " + path));
+                    sender.addChatMessage(
+                        new ChatComponentText(
+                            "SDE: 已写出 " + path + "；已写入 pending_bundle.json，客户端将自动读盘生成材质包（无网络包）"));
                     break;
                 case "status":
                     sender.addChatMessage(new ChatComponentText(s.statusLine()));
