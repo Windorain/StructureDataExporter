@@ -13,12 +13,11 @@ import java.util.Map;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.IIcon;
 import net.minecraft.util.ResourceLocation;
 
 import com.github.wikimultistructure.sde.core.export.BlockRenderKindResolver;
-import com.github.wikimultistructure.sde.core.export.PendingBundleFiles;
 import com.github.wikimultistructure.sde.core.export.GtcBlockRenderKind;
+import com.github.wikimultistructure.sde.core.export.PendingBundleFiles;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -30,8 +29,15 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * 客户端：palette → IIcon → ResourceLocation → 复制 assets 镜像；写出 block_registry（含 faces）与 material_registry。
- * 六面暂用 {@link Block#getIcon(int, int)} 的 side=3（北向）代表纹理；与 SimpleCube all 一致。
+ * 客户端材质包：读 {@code pending_bundle.json} → 写 registry 与 {@code assets/} 镜像。
+ * <p>
+ * <b>数据流（locator 相关）</b>：详见 {@link ExportTextureLocator} 类注释「数据流（端到端）」。此处 {@link #writeBundle} 对每个 palette 条目调用
+ * {@link ExportTextureLocator#resolve} 得到规范化 locator（唯一规范化点）；{@link #copyTextureAndMcmeta} 将 locator 转为 {@link ResourceLocation} 并从
+ * {@link net.minecraft.client.resources.IResourceManager} 复制字节到 bundle。{@code block_registry} 的 {@code materialId} 与
+ * {@code material_registry} 的键必须与 {@link #copyTextureAndMcmeta} 内使用的 locator 字符串一致（同一规范化结果）。
+ * <p>
+ * <b>假设</b>：与 {@link ExportTextureLocator} 一致，采样纹理视为方块图集侧；六面暂用 {@link Block#getIcon(int, int)} 的 side 与
+ * {@link ExportTextureLocator#DEFAULT_SAMPLE_SIDE} 一致；GT 机器纹理来自 MTE#getTexture（见 {@link com.github.wikimultistructure.sde.client.export.GtTextureResolver}）。
  */
 @SideOnly(Side.CLIENT)
 public final class ExportBundleClient {
@@ -39,9 +45,6 @@ public final class ExportBundleClient {
     /** 与 Wiki block_registry 对齐；schema 2 起含 faces.layers 与完备 material 引用 */
     public static final int BLOCK_REGISTRY_SCHEMA_VERSION = 2;
     public static final int MATERIAL_REGISTRY_SCHEMA_VERSION = 1;
-
-    /** 北向面，与多数机器「正面」展示一致；仅用于 all 六面同纹 */
-    private static final int SAMPLE_SIDE = 3;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
         .create();
@@ -55,10 +58,8 @@ public final class ExportBundleClient {
         if (mc == null || mc.theWorld == null) {
             return;
         }
-        File[] candidates = new File[] {
-            new File(mc.mcDataDir, "structure_exports/" + PendingBundleFiles.FILE_NAME),
-            new File(new File("structure_exports"), PendingBundleFiles.FILE_NAME).getAbsoluteFile(),
-        };
+        File[] candidates = new File[] { new File(mc.mcDataDir, "structure_exports/" + PendingBundleFiles.FILE_NAME),
+            new File(new File("structure_exports"), PendingBundleFiles.FILE_NAME).getAbsoluteFile(), };
         for (File pending : candidates) {
             if (!pending.isFile() || pending.length() == 0) {
                 continue;
@@ -81,18 +82,16 @@ public final class ExportBundleClient {
                 writeBundle(bundleRoot, outName, palette);
                 if (!pending.delete()) {
                     if (mc.thePlayer != null) {
-                        mc.thePlayer.addChatMessage(
-                            new ChatComponentText("SDE: 材质包已写出，但无法删除 pending_bundle.json，请手动删除"));
+                        mc.thePlayer
+                            .addChatMessage(new ChatComponentText("SDE: 材质包已写出，但无法删除 pending_bundle.json，请手动删除"));
                     }
                 } else if (mc.thePlayer != null) {
-                    mc.thePlayer.addChatMessage(
-                        new ChatComponentText("SDE: 材质包已写入: " + bundleRoot.getAbsolutePath()));
+                    mc.thePlayer.addChatMessage(new ChatComponentText("SDE: 材质包已写入: " + bundleRoot.getAbsolutePath()));
                 }
             } catch (Exception e) {
                 e.printStackTrace();
                 if (mc.thePlayer != null) {
-                    mc.thePlayer.addChatMessage(
-                        new ChatComponentText("SDE: 材质包失败 — " + e.getMessage()));
+                    mc.thePlayer.addChatMessage(new ChatComponentText("SDE: 材质包失败 — " + e.getMessage()));
                 }
             }
             return;
@@ -101,7 +100,7 @@ public final class ExportBundleClient {
 
     /**
      * @param bundleRootDir 与 {@code export.json} 同目录，一般为 {@code structure_exports} 的绝对路径（由服务端传入，与 user.dir 一致）
-     * @param outputName 无后缀，与 export.json 同名 stem
+     * @param outputName    无后缀，与 export.json 同名 stem
      */
     public static void writeBundle(File bundleRootDir, String outputName, JsonArray palette) throws IOException {
         File outDir = bundleRootDir;
@@ -143,12 +142,8 @@ public final class ExportBundleClient {
                 continue;
             }
 
-            String locator = null;
-            try {
-                locator = sampleBlockTextureLocator(block, meta);
-            } catch (Exception ignored) {
-                // 保持 locator null
-            }
+            // locator：规范化后的 ns:path，path 含 blocks/ 或 items/（默认 blocks，见 ExportTextureLocator）
+            String locator = ExportTextureLocator.resolve(block, meta, logicalKind);
 
             if (locator != null && copyTextureAndMcmeta(mc, outDir, locator, materials)) {
                 entry.addProperty("meshKind", "SimpleCube");
@@ -159,6 +154,7 @@ public final class ExportBundleClient {
                 JsonObject all = new JsonObject();
                 JsonArray layers = new JsonArray();
                 JsonObject layer = new JsonObject();
+                // materialId 必须与 material_registry 的键、磁盘导出的 locator 一致（同一字符串）
                 layer.addProperty("materialId", locator);
                 layer.addProperty("layerRole", "base");
                 layers.add(layer);
@@ -194,44 +190,28 @@ public final class ExportBundleClient {
         writeUtf8(matOut, GSON.toJson(matRoot));
     }
 
-    private static String sampleBlockTextureLocator(Block block, int meta) {
-        IIcon icon = block.getIcon(SAMPLE_SIDE, meta);
-        if (icon == null) {
-            return null;
-        }
-        String iconName = icon.getIconName();
-        if (iconName == null || iconName.isEmpty()) {
-            return null;
-        }
-        return iconNameToLocator(iconName);
-    }
-
-    static String iconNameToLocator(String iconName) {
-        int colon = iconName.indexOf(':');
-        if (colon < 0) {
-            return "minecraft:" + iconName;
-        }
-        return iconName;
-    }
-
-    private static boolean copyTextureAndMcmeta(
-        Minecraft mc,
-        File bundleRoot,
-        String locator,
-        Map<String, JsonObject> materialsOut
-    ) throws IOException {
+    /**
+     * 将 locator 映射到资源包内 PNG/MCMETA，并写入 bundle。
+     * <p>
+     * <b>约定</b>：locator 为 {@code 命名空间:path}，path 为 {@code textures/} 之后、不含 {@code .png}；即资源路径为
+     * {@code textures/&lt;path&gt;.png}。须已由 {@link ExportTextureLocator#resolve} 经 {@link ExportTextureLocator#normalizeLocatorForBundle} 规范化。
+     */
+    private static boolean copyTextureAndMcmeta(Minecraft mc, File bundleRoot, String locator,
+        Map<String, JsonObject> materialsOut) throws IOException {
         int colon = locator.indexOf(':');
         if (colon < 0) {
             return false;
         }
         String ns = locator.substring(0, colon);
         String path = locator.substring(colon + 1);
+        // ResourceLocation：domain + textures/<path>.png → 与 jar 内 assets/<domain>/textures/<path>.png 对应
         ResourceLocation texLoc = new ResourceLocation(ns, "textures/" + path + ".png");
 
         if (!resourceExists(mc, texLoc)) {
             return false;
         }
 
+        // 镜像目录与 texLoc 路径一致（不含 assets 前缀，由 File 拼 assets/ns/textures/...）
         File destPng = new File(bundleRoot, "assets/" + ns + "/textures/" + path + ".png");
         destPng.getParentFile()
             .mkdirs();
@@ -253,6 +233,7 @@ public final class ExportBundleClient {
             }
         }
 
+        // materials Map 键 = 规范化 locator，与 block_registry.materialId 一致
         if (!materialsOut.containsKey(locator)) {
             JsonObject m = new JsonObject();
             m.addProperty("locator", locator);

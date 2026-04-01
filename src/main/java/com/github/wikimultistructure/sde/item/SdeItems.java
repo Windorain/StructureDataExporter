@@ -1,7 +1,5 @@
 package com.github.wikimultistructure.sde.item;
 
-import com.github.wikimultistructure.sde.StructureDataExporterMod;
-
 import cpw.mods.fml.common.registry.GameRegistry;
 
 public final class SdeItems {

@@ -11,15 +11,7 @@ public final class SelectionClientState {
     private SelectionClientState() {}
 
     public static void apply(PacketSyncSelection p) {
-        snapshot = new SelectionSnapshot(
-            p.inSession,
-            p.complete,
-            p.minX,
-            p.minY,
-            p.minZ,
-            p.maxX,
-            p.maxY,
-            p.maxZ);
+        snapshot = new SelectionSnapshot(p.inSession, p.complete, p.minX, p.minY, p.minZ, p.maxX, p.maxY, p.maxZ);
     }
 
     public static boolean shouldDrawBox() {

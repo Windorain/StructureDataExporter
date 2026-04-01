@@ -9,27 +9,16 @@ import net.minecraft.block.Block;
  */
 public final class BlockRenderKindResolver {
 
-    private static final String[] CLASS_NAMES = {
-        "gregtech.common.blocks.BlockMachines",
-        "gregtech.common.blocks.BlockFrameBox",
-        "gregtech.common.blocks.BlockGlass1",
-        "gregtech.common.blocks.BlockTintedIndustrialGlass",
-        "gregtech.common.blocks.BlockCyclotronCoils",
-        "gregtech.common.blocks.BlockSheetMetal",
-        "gregtech.common.blocks.BlockReinforced",
-        "gregtech.common.blocks.BlockCasingsAbstract",
-    };
+    private static final String[] CLASS_NAMES = { "gregtech.common.blocks.BlockMachines",
+        "gregtech.common.blocks.BlockFrameBox", "gregtech.common.blocks.BlockGlass1",
+        "gregtech.common.blocks.BlockTintedIndustrialGlass", "gregtech.common.blocks.BlockCyclotronCoils",
+        "gregtech.common.blocks.BlockSheetMetal", "gregtech.common.blocks.BlockReinforced",
+        "gregtech.common.blocks.BlockCasingsAbstract", };
 
-    private static final GtcBlockRenderKind[] KINDS = {
-        GtcBlockRenderKind.MB_MACHINE,
-        GtcBlockRenderKind.MB_FRAME,
-        GtcBlockRenderKind.MB_CASING_GLASS,
-        GtcBlockRenderKind.MB_CASING_GLASS_TINTED,
-        GtcBlockRenderKind.MB_COIL_CYCLOTRON,
-        GtcBlockRenderKind.MB_SHEET_CASING,
-        GtcBlockRenderKind.MB_REINFORCED,
-        GtcBlockRenderKind.MB_CASING_SOLID,
-    };
+    private static final GtcBlockRenderKind[] KINDS = { GtcBlockRenderKind.MB_MACHINE, GtcBlockRenderKind.MB_FRAME,
+        GtcBlockRenderKind.MB_CASING_GLASS, GtcBlockRenderKind.MB_CASING_GLASS_TINTED,
+        GtcBlockRenderKind.MB_COIL_CYCLOTRON, GtcBlockRenderKind.MB_SHEET_CASING, GtcBlockRenderKind.MB_REINFORCED,
+        GtcBlockRenderKind.MB_CASING_SOLID, };
 
     private BlockRenderKindResolver() {}
 

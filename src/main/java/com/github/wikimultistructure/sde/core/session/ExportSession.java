@@ -3,8 +3,8 @@ package com.github.wikimultistructure.sde.core.session;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -214,15 +214,19 @@ public final class ExportSession {
         JsonParser parser = new JsonParser();
         LinkedHashMap<String, JsonObject> byKey = new LinkedHashMap<>();
         for (String json : frameJson.values()) {
-            JsonObject root = parser.parse(json).getAsJsonObject();
+            JsonObject root = parser.parse(json)
+                .getAsJsonObject();
             if (!root.has("palette")) {
                 continue;
             }
             JsonArray palette = root.getAsJsonArray("palette");
             for (int i = 0; i < palette.size(); i++) {
-                JsonObject p = palette.get(i).getAsJsonObject();
-                String registryId = p.get("registryId").getAsString();
-                int meta = p.get("meta").getAsInt();
+                JsonObject p = palette.get(i)
+                    .getAsJsonObject();
+                String registryId = p.get("registryId")
+                    .getAsString();
+                int meta = p.get("meta")
+                    .getAsInt();
                 String key = meta == 0 ? registryId : registryId + "@" + meta;
                 byKey.putIfAbsent(key, p);
             }
