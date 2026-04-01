@@ -5,12 +5,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
 
+import com.github.wikimultistructure.sde.export.BlockRegistryExportWriter;
 import com.github.wikimultistructure.sde.sampling.DefaultBlockSampler;
 import com.github.wikimultistructure.sde.sampling.IBlockSampler;
 import com.github.wikimultistructure.sde.scan.StructureScan;
@@ -139,6 +141,10 @@ public final class ExportSession {
             throw new IllegalStateException("无缓冲数据，请先 record");
         }
 
+        JsonArray paletteUnion = collectPaletteUnion();
+        File regOut = new File(dir, outputName + ".block_registry.json");
+        writeUtf8(regOut, GSON.toJson(BlockRegistryExportWriter.buildRegistryRoot(paletteUnion)));
+
         if (frameJson.size() == 1 && frameJson.containsKey(0)) {
             String json = frameJson.get(0);
             writeUtf8(out, json);
@@ -172,5 +178,32 @@ public final class ExportSession {
         try (OutputStreamWriter w = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
             w.write(content);
         }
+    }
+
+    /**
+     * 多帧 palette 并集（按 registryId+meta 去重，插入顺序稳定）。
+     */
+    private JsonArray collectPaletteUnion() {
+        JsonParser parser = new JsonParser();
+        LinkedHashMap<String, JsonObject> byKey = new LinkedHashMap<>();
+        for (String json : frameJson.values()) {
+            JsonObject root = parser.parse(json).getAsJsonObject();
+            if (!root.has("palette")) {
+                continue;
+            }
+            JsonArray palette = root.getAsJsonArray("palette");
+            for (int i = 0; i < palette.size(); i++) {
+                JsonObject p = palette.get(i).getAsJsonObject();
+                String registryId = p.get("registryId").getAsString();
+                int meta = p.get("meta").getAsInt();
+                String key = meta == 0 ? registryId : registryId + "@" + meta;
+                byKey.putIfAbsent(key, p);
+            }
+        }
+        JsonArray out = new JsonArray();
+        for (JsonObject p : byKey.values()) {
+            out.add(p);
+        }
+        return out;
     }
 }
