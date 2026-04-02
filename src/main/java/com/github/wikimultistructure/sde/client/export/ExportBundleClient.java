@@ -42,6 +42,8 @@ public final class ExportBundleClient {
     /** 与 Wiki block_registry 对齐；schema 3 起以 {@code renderProfile} 替代 {@code logicalKind} */
     public static final int BLOCK_REGISTRY_SCHEMA_VERSION = 3;
     public static final int MATERIAL_REGISTRY_SCHEMA_VERSION = 1;
+    /** 与 Wiki model_registry 对齐；当前 dump 写出空 {@code models}，由 Wiki 侧或后续管线填充 */
+    public static final int MODEL_REGISTRY_SCHEMA_VERSION = 1;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
         .create();
@@ -159,6 +161,11 @@ public final class ExportBundleClient {
         }
         matRoot.add("materials", matMap);
         writeUtf8(new File(exportRoot, "material_registry.json"), GSON.toJson(matRoot));
+
+        JsonObject modelRoot = new JsonObject();
+        modelRoot.addProperty("schemaVersion", MODEL_REGISTRY_SCHEMA_VERSION);
+        modelRoot.add("models", new JsonObject());
+        writeUtf8(new File(exportRoot, "model_registry.json"), GSON.toJson(modelRoot));
     }
 
     /**

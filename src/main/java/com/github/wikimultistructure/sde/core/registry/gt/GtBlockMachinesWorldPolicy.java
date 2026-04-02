@@ -35,7 +35,8 @@ public final class GtBlockMachinesWorldPolicy implements BlockRegistryWorldPolic
         if (GregTechMetaTileRegistry.isGregTechBlockMachines(block, registryId)) {
             Integer mId = GregTechMetaTileRegistry.tryGetMetaTileIdAt(world, x, y, z);
             if (mId != null) {
-                return new VoxelSample(registryId, mId);
+                String facing = GregTechMetaTileRegistry.tryGetFrontFacingWikiFaceNameAt(world, x, y, z);
+                return new VoxelSample(registryId, mId, facing);
             }
         }
         return FALLBACK.sample(world, x, y, z);

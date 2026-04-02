@@ -67,6 +67,9 @@ public final class StructureScan {
             JsonObject p = new JsonObject();
             p.addProperty("registryId", s.registryId);
             p.addProperty("meta", s.meta);
+            if (s.facing != null && !s.facing.isEmpty()) {
+                p.addProperty("facing", s.facing);
+            }
             palette.add(p);
         }
         root.add("palette", palette);

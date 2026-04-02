@@ -24,6 +24,8 @@ public final class GregTechMetaTileRegistry {
 
     private static final String C_GREGTECH_API = "gregtech.api.GregTechAPI";
     private static final String C_IGREG_TECH_TILE = "gregtech.api.interfaces.tileentity.IGregTechTileEntity";
+    /** GT {@code ITurnable#getFrontFacing()} */
+    private static final String C_ITURNABLE = "gregtech.api.interfaces.tileentity.ITurnable";
     private static final String C_BLOCK_MACHINES = "gregtech.common.blocks.BlockMachines";
     /** GT5U 多方块主机（EBF 等）的公共基类；仓室/管道等不继承此类。 */
     private static final String C_MTE_MULTIBLOCK_BASE = "gregtech.api.metatileentity.implementations.MTEMultiBlockBase";
@@ -195,6 +197,68 @@ public final class GregTechMetaTileRegistry {
             // fall through
         }
         return null;
+    }
+
+    /**
+     * 从世界坐标读取 GT {@code ITurnable} 的正面朝向，转为 Wiki {@code FaceName}（+x/-x/+y/-y/+z/-z）。
+     *
+     * @return 有效朝向；{@code UNKNOWN} 或失败时为 {@code null}
+     */
+    public static String tryGetFrontFacingWikiFaceNameAt(World world, int x, int y, int z) {
+        if (world == null) {
+            return null;
+        }
+        TileEntity te;
+        try {
+            te = world.getTileEntity(x, y, z);
+        } catch (Throwable ignored) {
+            return null;
+        }
+        if (te == null) {
+            return null;
+        }
+        try {
+            Class<?> it = Class.forName(C_ITURNABLE, false, te.getClass()
+                .getClassLoader());
+            if (!it.isInstance(te)) {
+                return null;
+            }
+            Method m = it.getMethod("getFrontFacing");
+            Object r = m.invoke(te);
+            if (!(r instanceof Enum)) {
+                return null;
+            }
+            return forgeDirectionEnumNameToWikiFaceName(((Enum<?>) r).name());
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * {@code ForgeDirection} 枚举名 → Wiki 外法线；UNKNOWN 为 {@code null}。
+     */
+    static String forgeDirectionEnumNameToWikiFaceName(String enumName) {
+        if (enumName == null) {
+            return null;
+        }
+        switch (enumName) {
+            case "UNKNOWN":
+                return null;
+            case "DOWN":
+                return "-y";
+            case "UP":
+                return "+y";
+            case "NORTH":
+                return "-z";
+            case "SOUTH":
+                return "+z";
+            case "WEST":
+                return "-x";
+            case "EAST":
+                return "+x";
+            default:
+                return null;
+        }
     }
 
 }
