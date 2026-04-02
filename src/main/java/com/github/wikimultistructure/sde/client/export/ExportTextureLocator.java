@@ -22,7 +22,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 
 /**
 
- * 将扫描得到的 palette 条目解析为可在资源包中定位 PNG 的 <b>locator 字符串</b>（{@code 命名空间:path}，不含 {@code .png}）。
+ * 将方块 + meta 解析为可在资源包中定位 PNG 的 <b>locator 字符串</b>（{@code 命名空间:path}，不含 {@code .png}）。
 
  * <p>
 
@@ -30,11 +30,15 @@ import cpw.mods.fml.relauncher.SideOnly;
 
  * <ol>
 
- * <li>服务端 {@link com.github.wikimultistructure.sde.core.session.ExportSession} 写出 {@code pending_bundle.json}（含 palette）；
+ * <li>场景导出仅写结构 JSON；全量注册表由 {@code /sde dump} 触发服务端写出 {@code pending_dump.json}，客户端
 
- * 客户端 {@link ExportBundleClient#tickConsumePendingIfAny} 读取后调用 {@link ExportBundleClient#writeBundle}。</li>
+ * {@link ExportBundleClient#tickConsumePendingDumpIfAny} 调用 {@link ExportBundleClient#writeFullRegistryDump}。</li>
 
- * <li>{@link ExportBundleClient#writeBundle} 对每个非 air 条目调用 {@link #resolve(Block, int, GtcBlockRenderKind)}，得到 locator。</li>
+ * <li>{@link ExportBundleClient#writeFullRegistryDump}：{@code block_registry} 由 Block 注册表 × meta 调用 {@link #resolve(Block, int, GtcBlockRenderKind)}；
+
+ * {@code material_registry} 仅由方块 {@link net.minecraft.client.renderer.texture.TextureMap} 的 {@code mapRegisteredSprites} 键经
+
+ * {@link #iconNameToLocator}、{@link #normalizeLocatorForBundle} 枚举（见 {@link com.github.wikimultistructure.sde.mixin.interfaces.accessors.TextureMapAccessor}）。</li>
 
  * <li>{@link #resolve}：若为 GT 机器白名单（{@link GtcBlockRenderKind#MB_MACHINE}），走 {@link GtTextureResolver#tryMetaTileEntityLocator}，
 
@@ -42,9 +46,9 @@ import cpw.mods.fml.relauncher.SideOnly;
 
  * <li>两条分支均在 {@link #resolve} 出口唯一调用 {@link #normalizeLocatorForBundle}（与磁盘 {@code assets/.../textures/...} 对齐）；{@link GtTextureResolver} 内部不再重复规范化。</li>
 
- * <li>{@link ExportBundleClient#copyTextureAndMcmeta} 用 locator 拼 {@link net.minecraft.util.ResourceLocation} 读 jar/资源包，并镜像到 bundle 的 {@code assets/}；
+ * <li>材质条目用 {@link net.minecraft.util.ResourceLocation} 探测 PNG/mcmeta（不复制资源文件）；{@code block_registry} 中 {@code materialId} 与
 
- * {@code material_registry} 的键与 {@code block_registry} 里 {@code materialId} 使用<b>同一</b>规范化后的 locator 字符串。</li>
+ * {@code material_registry} 键使用<b>同一</b>规范化 locator 字符串。</li>
 
  * </ol>
 
@@ -92,7 +96,7 @@ public final class ExportTextureLocator {
 
     /**
 
-     * 入口：palette 条目 → 规范化后的 locator，供 {@link ExportBundleClient#writeBundle} 与 {@link ExportBundleClient#copyTextureAndMcmeta} 使用。
+     * 入口：方块 + meta → 规范化后的 locator，供 {@link ExportBundleClient#writeFullRegistryDump} 与材质登记使用。
 
      * <p>
 
@@ -236,7 +240,7 @@ public final class ExportTextureLocator {
 
      * 将各来源的 locator 字符串规范为与 {@link net.minecraft.client.resources.IResourceManager#getResource}、磁盘 {@code assets/.../textures/...}
 
-     * 一致的形式，供 {@link ExportBundleClient#copyTextureAndMcmeta} 拼接 {@code textures/ + path + .png}。
+     * 一致的形式，供 {@link ExportBundleClient} 拼接 {@code textures/ + path + .png} 做资源探测。
 
      * <p>
 
@@ -276,7 +280,7 @@ public final class ExportTextureLocator {
 
         String path = locator.substring(colon + 1);
 
-        // 避免与 copyTextureAndMcmeta 拼 "textures/" 时重复成 textures/textures/...
+        // 避免与 ResourceLocation("textures/" + path + ".png") 拼 path 时重复成 textures/textures/...
 
         while (path.startsWith("textures/")) {
 

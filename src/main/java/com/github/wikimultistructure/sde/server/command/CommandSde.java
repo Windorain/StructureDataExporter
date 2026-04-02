@@ -20,7 +20,7 @@ public class CommandSde extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/sde <pos1|pos2|start|end|setName|setFrame|setStructureId|record|export|status>";
+        return "/sde <pos1|pos2|start|end|setName|setFrame|setStructureId|record|export|dump|status>";
     }
 
     @Override
@@ -80,8 +80,14 @@ public class CommandSde extends CommandBase {
                 case "export":
                     if (!checkPlayer(sender)) return;
                     String path = s.exportToFile();
+                    sender.addChatMessage(new ChatComponentText("SDE: 已写出场景文件: " + path));
+                    break;
+                case "dump":
+                    if (!checkPlayer(sender)) return;
+                    String dumpRoot = s.requestRegistryDump();
                     sender.addChatMessage(
-                        new ChatComponentText("SDE: 已写出 " + path + "；已写入 pending_bundle.json，客户端将自动读盘生成材质包（无网络包）"));
+                        new ChatComponentText(
+                            "SDE: 已写入 pending_dump.json，客户端将生成全量 block_registry.json / material_registry.json: " + dumpRoot));
                     break;
                 case "status":
                     sender.addChatMessage(new ChatComponentText(s.statusLine()));

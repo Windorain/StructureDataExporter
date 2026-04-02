@@ -5,14 +5,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
 
-import com.github.wikimultistructure.sde.core.export.PendingBundleFiles;
+import com.github.wikimultistructure.sde.core.export.PendingDumpFiles;
 import com.github.wikimultistructure.sde.core.sampling.DefaultBlockSampler;
 import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
 import com.github.wikimultistructure.sde.core.scan.StructureScan;
@@ -146,8 +145,7 @@ public final class ExportSession {
     }
 
     /**
-     * 写出结构 JSON 到 {@code structure_exports}，并写入 {@link PendingBundleFiles#FILE_NAME}，
-     * 供客户端下一 tick 起读取并生成 block_registry / material_registry / assets（无自定义网络包）。
+     * 写出结构 JSON 到 {@code structure_exports}（仅场景数据；注册表请用 {@link #requestRegistryDump()}）。
      */
     public String exportToFile() throws IOException {
         File dir = new File("structure_exports");
@@ -159,8 +157,6 @@ public final class ExportSession {
         if (frameJson.isEmpty()) {
             throw new IllegalStateException("无缓冲数据，请先 record");
         }
-
-        JsonArray paletteUnion = collectPaletteUnion();
 
         if (frameJson.size() == 1 && frameJson.containsKey(0)) {
             String json = frameJson.get(0);
@@ -188,53 +184,27 @@ public final class ExportSession {
             writeUtf8(out, GSON.toJson(world));
         }
 
-        writePendingBundleFile(dir, paletteUnion);
         return out.getAbsolutePath();
     }
 
-    private void writePendingBundleFile(File exportDir, JsonArray palette) throws IOException {
+    /**
+     * 在 {@code structure_exports} 下落盘 {@link PendingDumpFiles#FILE_NAME}，供客户端下一 tick 起生成全量注册表 JSON。
+     */
+    public String requestRegistryDump() throws IOException {
+        File dir = new File("structure_exports");
+        if (!dir.exists() && !dir.mkdirs()) {
+            throw new IOException("无法创建目录: " + dir.getAbsolutePath());
+        }
         JsonObject root = new JsonObject();
-        root.addProperty("schemaVersion", PendingBundleFiles.SCHEMA_VERSION);
-        root.addProperty("outputName", outputName);
-        root.addProperty("exportRoot", exportDir.getAbsolutePath());
-        root.add("palette", palette);
-        writeUtf8(new File(exportDir, PendingBundleFiles.FILE_NAME), GSON.toJson(root));
+        root.addProperty("schemaVersion", PendingDumpFiles.SCHEMA_VERSION);
+        root.addProperty("exportRoot", dir.getAbsolutePath());
+        writeUtf8(new File(dir, PendingDumpFiles.FILE_NAME), GSON.toJson(root));
+        return dir.getAbsolutePath();
     }
 
     private static void writeUtf8(File file, String content) throws IOException {
         try (OutputStreamWriter w = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
             w.write(content);
         }
-    }
-
-    /**
-     * 多帧 palette 并集（按 registryId+meta 去重，插入顺序稳定）。
-     */
-    private JsonArray collectPaletteUnion() {
-        JsonParser parser = new JsonParser();
-        LinkedHashMap<String, JsonObject> byKey = new LinkedHashMap<>();
-        for (String json : frameJson.values()) {
-            JsonObject root = parser.parse(json)
-                .getAsJsonObject();
-            if (!root.has("palette")) {
-                continue;
-            }
-            JsonArray palette = root.getAsJsonArray("palette");
-            for (int i = 0; i < palette.size(); i++) {
-                JsonObject p = palette.get(i)
-                    .getAsJsonObject();
-                String registryId = p.get("registryId")
-                    .getAsString();
-                int meta = p.get("meta")
-                    .getAsInt();
-                String key = meta == 0 ? registryId : registryId + "@" + meta;
-                byKey.putIfAbsent(key, p);
-            }
-        }
-        JsonArray out = new JsonArray();
-        for (JsonObject p : byKey.values()) {
-            out.add(p);
-        }
-        return out;
     }
 }
