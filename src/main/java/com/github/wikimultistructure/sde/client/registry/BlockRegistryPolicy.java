@@ -21,7 +21,7 @@ public interface BlockRegistryPolicy {
 
     boolean matches(Block block, String registryId, int meta);
 
-    /** 与结构扫描共用（默认委托 {@link com.github.wikimultistructure.sde.core.registry.GtBlockRegistryWorldPolicy}）；无坐标 dump 路径可不调用。 */
+    /** 与结构扫描共用（GregTech 策略委托 {@link com.github.wikimultistructure.sde.core.registry.gt.GtGregtechRegistryPolicyOrder} 中对应 world policy）；无坐标 dump 路径可不调用。 */
     VoxelSample sample(World world, int x, int y, int z);
 
     /** 向 {@code entry} 写入与 Wiki 契约一致的字段；不负责 material_registry。 */

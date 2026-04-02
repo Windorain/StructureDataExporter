@@ -15,8 +15,8 @@ import net.minecraft.world.World;
  * 与 {@code World#getBlockMetadata} 无一对一关系。
  * <p>
  * <b>契约</b>：{@code block_registry} 与结构 palette 中，对 {@code gregtech:gt.blockmachines}，键 {@code registryId@n}
- * 的 {@code n} 为 mID（表下标），不是世界 block meta。其他 GT 白名单方块仍为世界 meta 0–15，见
- * {@link GtBlockRegistryWorldPolicy}。
+ * 的 {@code n} 为 mID（表下标），不是世界 block meta。其他 GregTech 注册策略方块仍为世界 meta 0–15，见
+ * {@link com.github.wikimultistructure.sde.core.registry.gt.GtGregtechRegistryPolicyOrder}。
  * <p>
  * 无编译期依赖 GregTech；失败时方法返回安全默认值。
  */
@@ -25,6 +25,11 @@ public final class GregTechMetaTileRegistry {
     private static final String C_GREGTECH_API = "gregtech.api.GregTechAPI";
     private static final String C_IGREG_TECH_TILE = "gregtech.api.interfaces.tileentity.IGregTechTileEntity";
     private static final String C_BLOCK_MACHINES = "gregtech.common.blocks.BlockMachines";
+    /** GT5U 多方块主机（EBF 等）的公共基类；仓室/管道等不继承此类。 */
+    private static final String C_MTE_MULTIBLOCK_BASE = "gregtech.api.metatileentity.implementations.MTEMultiBlockBase";
+
+    /** 懒加载；失败时记为 {@link Void#TYPE} 表示不可用。 */
+    private static volatile Class<?> cachedMteMultiblockBaseClass;
 
     /** 与 GT5U {@code gregtech.common.blocks.BlockMachines} 注册名一致。 */
     public static final String REGISTRY_ID_GT_BLOCK_MACHINES = "gregtech:gt.blockmachines";
@@ -46,6 +51,56 @@ public final class GregTechMetaTileRegistry {
             return array;
         } catch (Throwable ignored) {
             return null;
+        }
+    }
+
+    /**
+     * @return {@code GregTechAPI.METATILEENTITIES[mId]}，可能为 {@code null}
+     */
+    public static Object tryGetMetaTileEntity(int mId) {
+        Object array = getMetaTileEntitiesArray();
+        if (array == null) {
+            return null;
+        }
+        int len = Array.getLength(array);
+        if (mId < 0 || mId >= len) {
+            return null;
+        }
+        return Array.get(array, mId);
+    }
+
+    /**
+     * @return {@code METATILEENTITIES[mId]} 是否为 GT5U 多方块主机（{@code MTEMultiBlockBase} 子类），例如 EBF；
+     *         非此类（管道、单方块机器、仓室等）为 {@code false}。无 GregTech 或类加载失败时为 {@code false}。
+     */
+    public static boolean isMetaTileEntityMultiblockController(Object mte) {
+        if (mte == null) {
+            return false;
+        }
+        Class<?> base = resolveMteMultiblockBaseClass();
+        if (base == null || base == Void.TYPE) {
+            return false;
+        }
+        return base.isInstance(mte);
+    }
+
+    private static Class<?> resolveMteMultiblockBaseClass() {
+        Class<?> c = cachedMteMultiblockBaseClass;
+        if (c != null) {
+            return c;
+        }
+        synchronized (GregTechMetaTileRegistry.class) {
+            c = cachedMteMultiblockBaseClass;
+            if (c != null) {
+                return c;
+            }
+            try {
+                c = Class.forName(C_MTE_MULTIBLOCK_BASE, false, GregTechMetaTileRegistry.class.getClassLoader());
+            } catch (ClassNotFoundException | LinkageError e) {
+                c = Void.TYPE;
+            }
+            cachedMteMultiblockBaseClass = c;
+            return c;
         }
     }
 
@@ -100,7 +155,7 @@ public final class GregTechMetaTileRegistry {
     }
 
     /**
-     * 与全量 dump、{@link GtBlockRegistryWorldPolicy} 使用同一判定：类 + 注册名。
+     * 与全量 dump、{@link com.github.wikimultistructure.sde.client.registry.gt.GtBlockMachinesRegistryPolicy} 使用同一判定：类 + 注册名。
      */
     public static boolean isGregTechBlockMachines(Block block, String registryId) {
         return REGISTRY_ID_GT_BLOCK_MACHINES.equals(registryId) && isBlockMachinesClass(block);

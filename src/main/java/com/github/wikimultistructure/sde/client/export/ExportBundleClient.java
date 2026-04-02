@@ -39,8 +39,8 @@ import cpw.mods.fml.relauncher.SideOnly;
 @SideOnly(Side.CLIENT)
 public final class ExportBundleClient {
 
-    /** 与 Wiki block_registry 对齐；schema 2 起含 faces.layers 与完备 material 引用 */
-    public static final int BLOCK_REGISTRY_SCHEMA_VERSION = 2;
+    /** 与 Wiki block_registry 对齐；schema 3 起以 {@code renderProfile} 替代 {@code logicalKind} */
+    public static final int BLOCK_REGISTRY_SCHEMA_VERSION = 3;
     public static final int MATERIAL_REGISTRY_SCHEMA_VERSION = 1;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()

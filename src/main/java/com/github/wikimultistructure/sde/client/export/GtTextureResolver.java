@@ -5,6 +5,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import net.minecraft.block.Block;
 import net.minecraft.util.IIcon;
@@ -19,8 +22,8 @@ import cpw.mods.fml.relauncher.SideOnly;
  * 解析出 locator 字符串（形态与 {@link IIcon#getIconName()} 一致：{@code ns:path}，无 {@code textures/}、无 {@code .png}）。
  * {@code mId} 为 MetaTile ID（表下标），不是世界 4bit block metadata。
  * <p>
- * <b>在数据流中的位置</b>：仅被 {@link ExportTextureLocator#resolve} 在 {@link com.github.wikimultistructure.sde.core.export.GtcBlockRenderKind#MB_MACHINE}
- * 分支调用；本类只产出与 {@link IIcon#getIconName()} 同形态的原始 {@code ns:path}，<b>规范化仅在</b> {@link ExportTextureLocator#resolve} 内调用
+ * <b>在数据流中的位置</b>：仅被 {@link ExportTextureLocator#resolve} 在 {@link com.github.wikimultistructure.sde.core.registry.gt.GtRenderProfiles#usesMetaTileEntityResolver(String)}
+ * 为真的分支调用；本类只产出与 {@link IIcon#getIconName()} 同形态的原始 {@code ns:path}，<b>规范化仅在</b> {@link ExportTextureLocator#resolve} 内调用
  * {@link ExportTextureLocator#normalizeLocatorForBundle} 一次完成。
  * <p>
  * <b>假设</b>：MTE 对方块渲染的纹理与 {@link ExportTextureLocator} 的「方块图集」假设一致；解析自 {@link IIcon} / {@code mIconName} /
@@ -86,6 +89,76 @@ public final class GtTextureResolver {
             t.printStackTrace();
         }
         return null;
+    }
+
+    /**
+     * 对 {@code getTexture(stub, side, machineFacing, ...)} 返回的 {@code ITexture[]} 逐层解析 locator 并规范化。
+     * <p>
+     * 用于多方块主机：{@code side == machineFacing} 时 GT 常在正面返回 [外壳, 正面镂空 overlay, glow] 等多层。
+     *
+     * @param side            采样立方体面（与 GT {@code getTexture} 的 {@code side} 一致）
+     * @param machineFacing   机器正面朝向（与 GT {@code aFacing} 一致）
+     * @return 非空层列表；无法解析时为空列表（非 {@code null}）
+     */
+    public static List<String> tryMetaTileEntityLayerLocatorsNormalized(int mId, ForgeDirection side,
+        ForgeDirection machineFacing) {
+        if (machineFacing == null) {
+            machineFacing = ForgeDirection.NORTH;
+        }
+        int sampleSideOrdinal = ExportTextureLocator.DEFAULT_SAMPLE_SIDE;
+        try {
+            Class<?> gta = Class.forName(C_GREGTECH_API, false, GtTextureResolver.class.getClassLoader());
+            Object array = gta.getField("METATILEENTITIES")
+                .get(null);
+            if (array == null || !array.getClass()
+                .isArray()) {
+                return Collections.emptyList();
+            }
+            int len = Array.getLength(array);
+            if (mId < 0 || mId >= len) {
+                return Collections.emptyList();
+            }
+            Object mte = Array.get(array, mId);
+            if (mte == null) {
+                return Collections.emptyList();
+            }
+            ClassLoader cl = mte.getClass()
+                .getClassLoader();
+            Class<?> igte = Class.forName(C_IGREG_TECH_TILE, false, cl);
+            Object stub = createGregTechTileStub(igte);
+
+            for (int colorIndex : new int[] { 0, -1, 1 }) {
+                Object[] texturesMachine = invokeGetTextureMachine(mte, stub, side, machineFacing, colorIndex, cl);
+                List<String> locs = extractAllLocatorsNormalized(texturesMachine, sampleSideOrdinal);
+                if (!locs.isEmpty()) {
+                    return locs;
+                }
+            }
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+        return Collections.emptyList();
+    }
+
+    private static List<String> extractAllLocatorsNormalized(Object[] textures, int sampleSideOrdinal) {
+        if (textures == null || textures.length == 0) {
+            return Collections.emptyList();
+        }
+        List<String> out = new ArrayList<>();
+        for (Object tex : textures) {
+            if (tex == null) {
+                continue;
+            }
+            String loc = locatorFromGtITexture(tex, sampleSideOrdinal);
+            if (loc == null || ExportTextureLocator.isLikelyGtRenderingErrorLocator(loc)) {
+                continue;
+            }
+            String n = ExportTextureLocator.normalizeLocatorForBundle(loc);
+            if (n != null) {
+                out.add(n);
+            }
+        }
+        return out;
     }
 
     private static String extractFirstLocator(Object[] textures, int sampleSideOrdinal) {
