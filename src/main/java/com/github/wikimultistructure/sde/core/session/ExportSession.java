@@ -12,6 +12,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
 
 import com.github.wikimultistructure.sde.core.export.PendingDumpFiles;
+import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
 import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
 import com.github.wikimultistructure.sde.core.sampling.PolicyBackedBlockSampler;
 import com.github.wikimultistructure.sde.core.scan.StructureScan;
@@ -21,7 +22,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-/** 会话状态、选区、多帧缓冲与落盘（单向：世界 → 内存 JSON 串 → export 写文件）。 */
+/**
+ * 会话状态、选区、多帧缓冲与落盘（单向：世界 → 内存 JSON 串 → export 写文件）。
+ * 默认 {@link IBlockSampler} 为 {@link PolicyBackedBlockSampler}；palette 中 {@code meta} 对 {@code gregtech:gt.blockmachines} 为 mID，见 {@link GregTechMetaTileRegistry}。
+ */
 public final class ExportSession {
 
     private static final ExportSession INSTANCE = new ExportSession();

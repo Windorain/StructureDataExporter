@@ -1,14 +1,21 @@
 package com.github.wikimultistructure.sde.core.registry;
 
 import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
+import net.minecraft.init.Blocks;
 import net.minecraft.world.World;
 
 import com.github.wikimultistructure.sde.core.export.GtcBlockRenderKind;
 import com.github.wikimultistructure.sde.core.sampling.DefaultBlockSampler;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 
+import cpw.mods.fml.common.registry.GameRegistry;
+
 /**
  * GT5U 多方块相关方块白名单：顺序与 {@link GtcBlockRenderKind} 说明一致（子类先于父类）；反射按类名匹配，避免编译期依赖 GregTech。
+ * <p>
+ * 对 {@code gregtech:gt.blockmachines}，{@link #matches} 仅判断白名单；{@link #sample} 从 Tile 读 mID（见 {@link GregTechMetaTileRegistry}）。
+ * 世界 {@code getBlockMetadata} 不可靠，不在此用于机器身份。
  */
 public final class GtBlockRegistryWorldPolicy implements BlockRegistryWorldPolicy {
 
@@ -54,8 +61,24 @@ public final class GtBlockRegistryWorldPolicy implements BlockRegistryWorldPolic
         return resolveLogicalKind(block) != null;
     }
 
+    /**
+     * 对 {@code gregtech:gt.blockmachines} 优先从 Tile 读 mID；无 Tile 或反射失败时回退 {@link DefaultBlockSampler}，此时 {@code meta} 为世界 4bit，
+     * 可能与 {@code block_registry} 中机器键不一致。
+     */
     @Override
     public VoxelSample sample(World world, int x, int y, int z) {
+        Block block = world.getBlock(x, y, z);
+        if (block == null || block == Blocks.air || block.getMaterial() == Material.air) {
+            return FALLBACK.sample(world, x, y, z);
+        }
+        GameRegistry.UniqueIdentifier uid = GameRegistry.findUniqueIdentifierFor(block);
+        String registryId = uid == null ? ("unknown:" + block.getUnlocalizedName()) : uid.toString();
+        if (GregTechMetaTileRegistry.isGregTechBlockMachines(block, registryId)) {
+            Integer mId = GregTechMetaTileRegistry.tryGetMetaTileIdAt(world, x, y, z);
+            if (mId != null) {
+                return new VoxelSample(registryId, mId);
+            }
+        }
         return FALLBACK.sample(world, x, y, z);
     }
 }

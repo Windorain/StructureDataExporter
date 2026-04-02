@@ -6,6 +6,7 @@ import net.minecraft.world.World;
 
 import com.github.wikimultistructure.sde.client.export.ExportTextureLocator;
 import com.github.wikimultistructure.sde.core.export.GtcBlockRenderKind;
+import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
 import com.github.wikimultistructure.sde.core.registry.GtBlockRegistryWorldPolicy;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
@@ -14,7 +15,10 @@ import com.google.gson.JsonObject;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
-/** GregTech 多方块白名单：{@link GtBlockRegistryWorldPolicy} 与 dump 共用命中条件。 */
+/**
+ * GregTech 白名单：全量 dump 与 {@link GtBlockRegistryWorldPolicy} 分离——此处 {@link #matches} 的 {@code meta}
+ * 对 {@code gregtech:gt.blockmachines} 为 mID（{@code METATILEENTITIES} 下标）；世界采样见 {@link GtBlockRegistryWorldPolicy}。
+ */
 @SideOnly(Side.CLIENT)
 public final class GtBlockRegistryPolicy implements BlockRegistryPolicy {
 
@@ -22,7 +26,14 @@ public final class GtBlockRegistryPolicy implements BlockRegistryPolicy {
 
     @Override
     public boolean matches(Block block, String registryId, int meta) {
-        return world.matches(block, registryId, meta);
+        GtcBlockRenderKind kind = GtBlockRegistryWorldPolicy.resolveLogicalKind(block);
+        if (kind == null) {
+            return false;
+        }
+        if (kind == GtcBlockRenderKind.MB_MACHINE && GregTechMetaTileRegistry.isGregTechBlockMachines(block, registryId)) {
+            return GregTechMetaTileRegistry.isMetaTileSlotRegistered(meta);
+        }
+        return true;
     }
 
     @Override

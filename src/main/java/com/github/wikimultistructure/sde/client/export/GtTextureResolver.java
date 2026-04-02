@@ -15,8 +15,9 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * GregTech：从 {@code GregTechAPI.METATILEENTITIES[meta]} 取 {@code IMetaTileEntity#getTexture}，再自 {@code ITexture}
+ * GregTech：从 {@code GregTechAPI.METATILEENTITIES[mId]} 取 {@code IMetaTileEntity#getTexture}，再自 {@code ITexture}
  * 解析出 locator 字符串（形态与 {@link IIcon#getIconName()} 一致：{@code ns:path}，无 {@code textures/}、无 {@code .png}）。
+ * {@code mId} 为 MetaTile ID（表下标），不是世界 4bit block metadata。
  * <p>
  * <b>在数据流中的位置</b>：仅被 {@link ExportTextureLocator#resolve} 在 {@link com.github.wikimultistructure.sde.core.export.GtcBlockRenderKind#MB_MACHINE}
  * 分支调用；本类只产出与 {@link IIcon#getIconName()} 同形态的原始 {@code ns:path}，<b>规范化仅在</b> {@link ExportTextureLocator#resolve} 内调用
@@ -36,12 +37,13 @@ public final class GtTextureResolver {
     private GtTextureResolver() {}
 
     /**
+     * @param mId               GT5U MetaTile ID（{@code METATILEENTITIES} 下标），与 {@code block_registry} 键 {@code gregtech:gt.blockmachines@n} 中 {@code n} 一致
      * @param sampleSideOrdinal 与 {@link Block#getIcon(int, int)} 的 side 序数一致（见 {@link ExportTextureLocator#DEFAULT_SAMPLE_SIDE}）
      * @param facing            传入 MTE#getTexture 的朝向参数，常用 {@link ForgeDirection#NORTH}
      * @return 原始 {@code ns:path}（无 {@code .png}），尚未 {@link ExportTextureLocator#normalizeLocatorForBundle}；失败时 {@code null}。
      *         仅 {@link ExportTextureLocator#resolve} 应作为对外入口并负责规范化。
      */
-    public static String tryMetaTileEntityLocator(int meta, int sampleSideOrdinal, ForgeDirection facing) {
+    public static String tryMetaTileEntityLocator(int mId, int sampleSideOrdinal, ForgeDirection facing) {
         try {
             Class<?> gta = Class.forName(C_GREGTECH_API, false, GtTextureResolver.class.getClassLoader());
             Object array = gta.getField("METATILEENTITIES")
@@ -51,10 +53,10 @@ public final class GtTextureResolver {
                 return null;
             }
             int len = Array.getLength(array);
-            if (meta < 0 || meta >= len) {
+            if (mId < 0 || mId >= len) {
                 return null;
             }
-            Object mte = Array.get(array, meta);
+            Object mte = Array.get(array, mId);
             if (mte == null) {
                 return null;
             }

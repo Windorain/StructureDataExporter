@@ -18,6 +18,7 @@ import net.minecraft.util.ResourceLocation;
 
 import com.github.wikimultistructure.sde.client.registry.BlockRegistryPolicies;
 import com.github.wikimultistructure.sde.core.export.PendingDumpFiles;
+import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
 import com.github.wikimultistructure.sde.mixin.interfaces.accessors.TextureMapAccessor;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -31,8 +32,9 @@ import cpw.mods.fml.relauncher.SideOnly;
 /**
  * 客户端：读 {@link PendingDumpFiles} 触发文件 → 写出全量 {@code block_registry.json} / {@code material_registry.json}（不写 assets 镜像）。
  * <p>
- * {@code block_registry}：Block×meta 经 {@link BlockRegistryPolicies} 策略链；{@code material_registry}：仅由方块 {@link TextureMap} 的
- * {@code mapRegisteredSprites} 键经规范化枚举（见 {@link TextureMapAccessor}）。
+ * {@code block_registry}：一般方块为 world meta 0–15；{@code gregtech:gt.blockmachines} 按 GT5U {@code METATILEENTITIES}
+ * 非空槽枚举，键 {@code registryId@n} 中 {@code n} 为 MetaTile ID（mID），见 {@link GregTechMetaTileRegistry}。
+ * {@code material_registry}：仅由方块 {@link TextureMap} 的 {@code mapRegisteredSprites} 键经规范化枚举（见 {@link TextureMapAccessor}）。
  */
 @SideOnly(Side.CLIENT)
 public final class ExportBundleClient {
@@ -91,7 +93,7 @@ public final class ExportBundleClient {
     }
 
     /**
-     * 写出 {@code block_registry.json}（Block×meta）与 {@code material_registry.json}（仅方块图集已注册精灵；不复制贴图文件）。
+     * 写出 {@code block_registry.json} 与 {@code material_registry.json}（仅方块图集已注册精灵；不复制贴图文件）。
      */
     public static void writeFullRegistryDump(File exportRoot) throws IOException {
         if (!exportRoot.exists() && !exportRoot.mkdirs()) {
@@ -113,6 +115,20 @@ public final class ExportBundleClient {
             }
             String registryId = uid.toString();
             if ("minecraft:air".equals(registryId)) {
+                continue;
+            }
+            if (GregTechMetaTileRegistry.isGregTechBlockMachines(block, registryId)) {
+                GregTechMetaTileRegistry.forEachRegisteredMetaTileId(mId -> {
+                    String key = mId == 0 ? registryId : registryId + "@" + mId;
+                    if (blocks.has(key)) {
+                        return;
+                    }
+                    try {
+                        BlockRegistryPolicies.appendBlockEntry(mc, block, registryId, mId, key, blocks);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                });
                 continue;
             }
             for (int meta = 0; meta <= 15; meta++) {

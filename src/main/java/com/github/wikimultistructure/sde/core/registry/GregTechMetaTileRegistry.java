@@ -1,0 +1,145 @@
+package com.github.wikimultistructure.sde.core.registry;
+
+import java.lang.reflect.Array;
+import java.lang.reflect.Method;
+
+import net.minecraft.block.Block;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.World;
+
+/**
+ * GT5U 唯一可信源：{@code GregTechAPI.METATILEENTITIES} 与 Tile 上的 MetaTile ID（mID）。
+ * <p>
+ * <b>背景</b>：MC 1.7.10 世界方块 metadata 为 4 bit（0–15）；{@code gregtech:gt.blockmachines} 上具体种类由
+ * {@code BaseMetaTileEntity} / {@code BaseMetaPipeEntity} 的 {@code mID} 与全局 {@code METATILEENTITIES[mID]} 决定，
+ * 与 {@code World#getBlockMetadata} 无一对一关系。
+ * <p>
+ * <b>契约</b>：{@code block_registry} 与结构 palette 中，对 {@code gregtech:gt.blockmachines}，键 {@code registryId@n}
+ * 的 {@code n} 为 mID（表下标），不是世界 block meta。其他 GT 白名单方块仍为世界 meta 0–15，见
+ * {@link GtBlockRegistryWorldPolicy}。
+ * <p>
+ * 无编译期依赖 GregTech；失败时方法返回安全默认值。
+ */
+public final class GregTechMetaTileRegistry {
+
+    private static final String C_GREGTECH_API = "gregtech.api.GregTechAPI";
+    private static final String C_IGREG_TECH_TILE = "gregtech.api.interfaces.tileentity.IGregTechTileEntity";
+    private static final String C_BLOCK_MACHINES = "gregtech.common.blocks.BlockMachines";
+
+    /** 与 GT5U {@code gregtech.common.blocks.BlockMachines} 注册名一致。 */
+    public static final String REGISTRY_ID_GT_BLOCK_MACHINES = "gregtech:gt.blockmachines";
+
+    private GregTechMetaTileRegistry() {}
+
+    /**
+     * @return 反射得到的 {@code METATILEENTITIES} 数组，或 {@code null}
+     */
+    public static Object getMetaTileEntitiesArray() {
+        try {
+            Class<?> gta = Class.forName(C_GREGTECH_API, false, GregTechMetaTileRegistry.class.getClassLoader());
+            Object array = gta.getField("METATILEENTITIES")
+                .get(null);
+            if (array == null || !array.getClass()
+                .isArray()) {
+                return null;
+            }
+            return array;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /** @return {@code METATILEENTITIES[mId] != null} 且下标在范围内 */
+    public static boolean isMetaTileSlotRegistered(int mId) {
+        Object array = getMetaTileEntitiesArray();
+        if (array == null) {
+            return false;
+        }
+        int len = Array.getLength(array);
+        if (mId < 0 || mId >= len) {
+            return false;
+        }
+        return Array.get(array, mId) != null;
+    }
+
+    /**
+     * 自 1 起扫描至数组末尾（与 GT5U NEI dumper 一致）；槽 0 若存在非空 MTE 也会回调。
+     */
+    public static void forEachRegisteredMetaTileId(MetaTileIdConsumer consumer) {
+        Object array = getMetaTileEntitiesArray();
+        if (array == null || consumer == null) {
+            return;
+        }
+        int len = Array.getLength(array);
+        if (len > 0 && Array.get(array, 0) != null) {
+            consumer.accept(0);
+        }
+        for (int i = 1; i < len; i++) {
+            if (Array.get(array, i) != null) {
+                consumer.accept(i);
+            }
+        }
+    }
+
+    @FunctionalInterface
+    public interface MetaTileIdConsumer {
+
+        void accept(int mId);
+    }
+
+    public static boolean isBlockMachinesClass(Block block) {
+        if (block == null) {
+            return false;
+        }
+        try {
+            Class<?> c = Class.forName(C_BLOCK_MACHINES, false, GregTechMetaTileRegistry.class.getClassLoader());
+            return c.isInstance(block);
+        } catch (ClassNotFoundException | LinkageError e) {
+            return false;
+        }
+    }
+
+    /**
+     * 与全量 dump、{@link GtBlockRegistryWorldPolicy} 使用同一判定：类 + 注册名。
+     */
+    public static boolean isGregTechBlockMachines(Block block, String registryId) {
+        return REGISTRY_ID_GT_BLOCK_MACHINES.equals(registryId) && isBlockMachinesClass(block);
+    }
+
+    /**
+     * 从世界坐标读取 GT Tile 的 mID；失败时返回 {@code null}（调用方应回退 {@link com.github.wikimultistructure.sde.core.sampling.DefaultBlockSampler}）。
+     */
+    public static Integer tryGetMetaTileIdAt(World world, int x, int y, int z) {
+        if (world == null) {
+            return null;
+        }
+        TileEntity te;
+        try {
+            te = world.getTileEntity(x, y, z);
+        } catch (Throwable ignored) {
+            return null;
+        }
+        if (te == null) {
+            return null;
+        }
+        try {
+            Class<?> igt = Class.forName(C_IGREG_TECH_TILE, false, te.getClass()
+                .getClassLoader());
+            if (!igt.isInstance(te)) {
+                return null;
+            }
+            Method m = igt.getMethod("getMetaTileID");
+            Object r = m.invoke(te);
+            if (r instanceof Integer) {
+                return (Integer) r;
+            }
+            if (r instanceof Number) {
+                return ((Number) r).intValue();
+            }
+        } catch (Throwable ignored) {
+            // fall through
+        }
+        return null;
+    }
+
+}

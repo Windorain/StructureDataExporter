@@ -23,6 +23,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 /**
 
  * 将方块 + meta 解析为可在资源包中定位 PNG 的 <b>locator 字符串</b>（{@code 命名空间:path}，不含 {@code .png}）。
+ * {@link GtcBlockRenderKind#MB_MACHINE} 时参数为 mID；其余为 world meta 0–15。
 
  * <p>
 
@@ -34,7 +35,9 @@ import cpw.mods.fml.relauncher.SideOnly;
 
  * {@link ExportBundleClient#tickConsumePendingDumpIfAny} 调用 {@link ExportBundleClient#writeFullRegistryDump}。</li>
 
- * <li>{@link ExportBundleClient#writeFullRegistryDump}：{@code block_registry} 由 Block 注册表 × meta 调用 {@link #resolve(Block, int, GtcBlockRenderKind)}；
+ * <li>{@link ExportBundleClient#writeFullRegistryDump}：{@code block_registry} 由 Block 注册表调用 {@link #resolve(Block, int, GtcBlockRenderKind)}；
+
+ * 一般方块 {@code meta} 为世界变体 0–15；{@code gregtech:gt.blockmachines} 为 MetaTile ID（mID），见 {@link com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry}。
 
  * {@code material_registry} 仅由方块 {@link net.minecraft.client.renderer.texture.TextureMap} 的 {@code mapRegisteredSprites} 键经
 
@@ -102,6 +105,8 @@ public final class ExportTextureLocator {
 
      * <b>假设</b>：见类注释；此处两条分支（MTE / 普通方块图标）最终都经 {@link #normalizeLocatorForBundle}。
 
+     * @param meta {@link GtcBlockRenderKind#MB_MACHINE} 时为 GT5U mID；否则为世界 block metadata（0–15）。
+
      */
 
     public static String resolve(Block block, int meta, GtcBlockRenderKind logicalKind) {
@@ -114,7 +119,7 @@ public final class ExportTextureLocator {
 
         if (logicalKind == GtcBlockRenderKind.MB_MACHINE) {
 
-            // 数据流：METATILEENTITIES[meta] → getTexture → ITexture → IIcon / mIconName → 原始 ns:path
+            // 数据流：METATILEENTITIES[mId] → getTexture → ITexture → IIcon / mIconName → 原始 ns:path
 
             String fromMte = GtTextureResolver
 
