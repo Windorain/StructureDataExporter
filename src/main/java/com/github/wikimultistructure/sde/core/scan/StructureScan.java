@@ -70,6 +70,9 @@ public final class StructureScan {
             if (s.facing != null && !s.facing.isEmpty()) {
                 p.addProperty("facing", s.facing);
             }
+            if (s.shellMaterialId != null && !s.shellMaterialId.isEmpty()) {
+                p.addProperty("shellMaterialId", s.shellMaterialId);
+            }
             palette.add(p);
         }
         root.add("palette", palette);

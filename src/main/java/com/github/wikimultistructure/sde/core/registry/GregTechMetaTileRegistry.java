@@ -29,9 +29,12 @@ public final class GregTechMetaTileRegistry {
     private static final String C_BLOCK_MACHINES = "gregtech.common.blocks.BlockMachines";
     /** GT5U 多方块主机（EBF 等）的公共基类；仓室/管道等不继承此类。 */
     private static final String C_MTE_MULTIBLOCK_BASE = "gregtech.api.metatileentity.implementations.MTEMultiBlockBase";
+    /** GT5U 多方块仓室（消声/能源/流体/总线等）公共基类；{@code MTEHatch#getTexture} 侧面单层、正面多层。 */
+    private static final String C_MTE_HATCH = "gregtech.api.metatileentity.implementations.MTEHatch";
 
     /** 懒加载；失败时记为 {@link Void#TYPE} 表示不可用。 */
     private static volatile Class<?> cachedMteMultiblockBaseClass;
+    private static volatile Class<?> cachedMteHatchClass;
 
     /** 与 GT5U {@code gregtech.common.blocks.BlockMachines} 注册名一致。 */
     public static final String REGISTRY_ID_GT_BLOCK_MACHINES = "gregtech:gt.blockmachines";
@@ -86,6 +89,20 @@ public final class GregTechMetaTileRegistry {
         return base.isInstance(mte);
     }
 
+    /**
+     * @return {@code METATILEENTITIES[mId]} 是否为 GT5U 多方块仓室（{@code MTEHatch} 子类）；addons 若继承 {@code MTEHatch} 亦命中。
+     */
+    public static boolean isMetaTileEntityHatch(Object mte) {
+        if (mte == null) {
+            return false;
+        }
+        Class<?> h = resolveMteHatchClass();
+        if (h == null || h == Void.TYPE) {
+            return false;
+        }
+        return h.isInstance(mte);
+    }
+
     private static Class<?> resolveMteMultiblockBaseClass() {
         Class<?> c = cachedMteMultiblockBaseClass;
         if (c != null) {
@@ -102,6 +119,26 @@ public final class GregTechMetaTileRegistry {
                 c = Void.TYPE;
             }
             cachedMteMultiblockBaseClass = c;
+            return c;
+        }
+    }
+
+    private static Class<?> resolveMteHatchClass() {
+        Class<?> c = cachedMteHatchClass;
+        if (c != null) {
+            return c;
+        }
+        synchronized (GregTechMetaTileRegistry.class) {
+            c = cachedMteHatchClass;
+            if (c != null) {
+                return c;
+            }
+            try {
+                c = Class.forName(C_MTE_HATCH, false, GregTechMetaTileRegistry.class.getClassLoader());
+            } catch (ClassNotFoundException | LinkageError e) {
+                c = Void.TYPE;
+            }
+            cachedMteHatchClass = c;
             return c;
         }
     }

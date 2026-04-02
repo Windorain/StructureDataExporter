@@ -24,13 +24,14 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * {@code gregtech:gt.blockmachines}：内层 {@link MetaTileBlockRegistryStrategy} 链（控制器 → 默认），
+ * {@code gregtech:gt.blockmachines}：内层 {@link MetaTileBlockRegistryStrategy} 链（多方块主机 → {@code MTEHatch} 仓室 → 默认），
  * 与 {@link GtBlockMachinesWorldPolicy} 成对世界采样。
  */
 @SideOnly(Side.CLIENT)
 public final class GtBlockMachinesRegistryPolicy implements BlockRegistryPolicy {
 
     private static final List<MetaTileBlockRegistryStrategy> META_TILE_CHAIN = Arrays.asList(new GregTechMultiblockControllerRegistryStrategy(),
+        new GregTechHatchRegistryStrategy(),
         new GregTechDefaultMetaTileRegistryStrategy());
 
     private final GtBlockMachinesWorldPolicy world;
@@ -63,6 +64,14 @@ public final class GtBlockMachinesRegistryPolicy implements BlockRegistryPolicy 
     }
 
     static void writeSimpleCubeEntry(JsonObject entry, Block block, int meta, String renderProfile, Minecraft mc) {
+        writeSimpleCubeEntry(entry, block, meta, renderProfile, mc, false);
+    }
+
+    /**
+     * @param neighborShellBlockMarker 为真时写入 {@code materialResolve.type = neighborShellBlock}（Wiki 渲染端按邻格解析，无映射表）
+     */
+    static void writeSimpleCubeEntry(JsonObject entry, Block block, int meta, String renderProfile, Minecraft mc,
+        boolean neighborShellBlockMarker) {
         boolean occludes = block.isOpaqueCube();
         entry.addProperty("occludesAdjacentFaces", occludes);
         entry.addProperty("renderProfile", renderProfile);
@@ -77,6 +86,9 @@ public final class GtBlockMachinesRegistryPolicy implements BlockRegistryPolicy 
             JsonObject layer = new JsonObject();
             layer.addProperty("materialId", locator);
             layer.addProperty("layerRole", "base");
+            if (neighborShellBlockMarker) {
+                addNeighborShellBlockResolve(layer);
+            }
             layers.add(layer);
             all.add("layers", layers);
             faces.add("all", all);
@@ -87,13 +99,36 @@ public final class GtBlockMachinesRegistryPolicy implements BlockRegistryPolicy 
         }
     }
 
+    private static void addNeighborShellBlockResolve(JsonObject layer) {
+        JsonObject mr = new JsonObject();
+        mr.addProperty("type", "neighborShellBlock");
+        layer.add("materialResolve", mr);
+    }
+
     /**
      * 多方块主机：{@code faces.all} 为侧面外壳一层；{@code faces.-z} 为正面（与 Wiki 默认朝北 -z 一致）叠加镂空 / glow 层。
      */
     static void writeMultiblockControllerEntry(JsonObject entry, Block block, int meta, Minecraft mc) {
+        writeMetaTileShellFrontFaceLayersEntry(entry, block, meta, GtRenderProfiles.MULTIBLOCK_CONTROLLER, mc, false);
+    }
+
+    /**
+     * MTE 在渲染面为「非机器正面」时仅一层外壳，为「正面」时 {@code getTexture} 可返回多层。GT5U 中
+     * {@code MTEMultiBlockBase} 主机与 {@code MTEHatch} 仓室均符合此形状，故共用同一 JSON 结构。
+     *
+     * @param renderProfile {@link GtRenderProfiles#MULTIBLOCK_CONTROLLER} 或 {@link GtRenderProfiles#DEFAULT}（仓室）
+     * @param neighborShellBlockMarker 仓室为真时写入 {@code neighborShellBlock}，由 Wiki 按体素邻格解析，不导出映射表
+     */
+    static void writeMetaTileShellFrontFaceLayersEntry(JsonObject entry, Block block, int meta, String renderProfile,
+        Minecraft mc) {
+        writeMetaTileShellFrontFaceLayersEntry(entry, block, meta, renderProfile, mc, false);
+    }
+
+    static void writeMetaTileShellFrontFaceLayersEntry(JsonObject entry, Block block, int meta, String renderProfile,
+        Minecraft mc, boolean neighborShellBlockMarker) {
         boolean occludes = block.isOpaqueCube();
         entry.addProperty("occludesAdjacentFaces", occludes);
-        entry.addProperty("renderProfile", GtRenderProfiles.MULTIBLOCK_CONTROLLER);
+        entry.addProperty("renderProfile", renderProfile);
         entry.addProperty("meshKind", "SimpleCube");
 
         ForgeDirection front = ForgeDirection.NORTH;
@@ -102,13 +137,13 @@ public final class GtBlockMachinesRegistryPolicy implements BlockRegistryPolicy 
         List<String> frontFace = GtTextureResolver.tryMetaTileEntityLayerLocatorsNormalized(meta, front, front);
 
         if (frontFace.size() < 2) {
-            writeSimpleCubeEntry(entry, block, meta, GtRenderProfiles.MULTIBLOCK_CONTROLLER, mc);
+            writeSimpleCubeEntry(entry, block, meta, renderProfile, mc, neighborShellBlockMarker);
             return;
         }
 
         String baseLocator = !shell.isEmpty() ? shell.get(0) : frontFace.get(0);
         if (baseLocator == null || !BlockRegistryTextureProbe.texturePngExistsForLocator(mc, baseLocator)) {
-            writeSimpleCubeEntry(entry, block, meta, GtRenderProfiles.MULTIBLOCK_CONTROLLER, mc);
+            writeSimpleCubeEntry(entry, block, meta, renderProfile, mc, neighborShellBlockMarker);
             return;
         }
 
@@ -118,6 +153,9 @@ public final class GtBlockMachinesRegistryPolicy implements BlockRegistryPolicy 
         JsonObject baseLayer = new JsonObject();
         baseLayer.addProperty("materialId", baseLocator);
         baseLayer.addProperty("layerRole", "base");
+        if (neighborShellBlockMarker) {
+            addNeighborShellBlockResolve(baseLayer);
+        }
         allLayers.add(baseLayer);
         all.add("layers", allLayers);
         faces.add("all", all);

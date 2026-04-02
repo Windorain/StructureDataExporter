@@ -16,18 +16,30 @@ import com.google.gson.JsonObject;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
-/** 非 {@code gt.blockmachines} 的 GT 方块：类名命中 + 固定 {@code renderProfile}。 */
+/**
+ * 非 {@code gt.blockmachines} 的 GT 方块：类名命中 + 固定 {@code renderProfile}。
+ * <p>
+ * {@code faceLayerRole} 为 {@code glass}/{@code cutout} 时与 Wiki 渲染一致：透明混合 + {@code occludesAdjacentFaces=false}。
+ */
 @SideOnly(Side.CLIENT)
 public final class GtBlockClassRegistryPolicy implements BlockRegistryPolicy {
 
     private final String blockClassBinaryName;
     private final String renderProfile;
     private final GtBlockClassWorldPolicy world;
+    /** 写入 {@code faces.*.layers[]} 的 {@code layerRole}；默认 {@code base} */
+    private final String faceLayerRole;
 
     public GtBlockClassRegistryPolicy(String blockClassBinaryName, String renderProfile, GtBlockClassWorldPolicy world) {
+        this(blockClassBinaryName, renderProfile, world, "base");
+    }
+
+    public GtBlockClassRegistryPolicy(String blockClassBinaryName, String renderProfile, GtBlockClassWorldPolicy world,
+        String faceLayerRole) {
         this.blockClassBinaryName = blockClassBinaryName;
         this.renderProfile = renderProfile;
         this.world = world;
+        this.faceLayerRole = faceLayerRole;
     }
 
     @Override
@@ -42,7 +54,7 @@ public final class GtBlockClassRegistryPolicy implements BlockRegistryPolicy {
 
     @Override
     public void writeBlockRegistryEntry(JsonObject entry, Block block, String registryId, int meta, Minecraft mc) {
-        boolean occludes = block.isOpaqueCube();
+        boolean occludes = occludesAdjacentFor(block, faceLayerRole);
         entry.addProperty("occludesAdjacentFaces", occludes);
         entry.addProperty("renderProfile", renderProfile);
 
@@ -55,7 +67,7 @@ public final class GtBlockClassRegistryPolicy implements BlockRegistryPolicy {
             JsonArray layers = new JsonArray();
             JsonObject layer = new JsonObject();
             layer.addProperty("materialId", locator);
-            layer.addProperty("layerRole", "base");
+            layer.addProperty("layerRole", faceLayerRole);
             layers.add(layer);
             all.add("layers", layers);
             faces.add("all", all);
@@ -64,5 +76,12 @@ public final class GtBlockClassRegistryPolicy implements BlockRegistryPolicy {
             entry.addProperty("meshKind", "SimpleCube");
             entry.add("faces", new JsonObject());
         }
+    }
+
+    private static boolean occludesAdjacentFor(Block block, String faceLayerRole) {
+        if ("glass".equals(faceLayerRole) || "cutout".equals(faceLayerRole)) {
+            return false;
+        }
+        return block.isOpaqueCube();
     }
 }

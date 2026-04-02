@@ -8,6 +8,8 @@ import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
  * 其他方块为世界 block metadata（0–15）。
  * <p>
  * 可选 {@link #facing}：机器正面在世界中的外法线（Wiki {@code FaceName}，如 {@code -z}）；与 block_registry 以北为正面一致。
+ * <p>
+ * 可选 {@link #shellMaterialId}：GT 仓室（MTEHatch）在结构导出时由世界邻格解析的壳层材质 locator（与 {@code material_registry} 键一致）；非仓室或未解析时为 {@code null}。
  */
 public final class VoxelSample {
 
@@ -18,29 +20,48 @@ public final class VoxelSample {
      * Wiki palette 的 {@code facing}；{@code null} 表示默认朝北（-z），与旧数据兼容。
      */
     public final String facing;
+    /**
+     * 仓室壳层材质 locator（与 block_registry / material_registry 一致）；仅 Hatch 扫描时可能非空。
+     */
+    public final String shellMaterialId;
 
     public VoxelSample(String registryId, int meta) {
-        this(registryId, meta, null);
+        this(registryId, meta, null, null);
     }
 
     public VoxelSample(String registryId, int meta, String facing) {
+        this(registryId, meta, facing, null);
+    }
+
+    public VoxelSample(String registryId, int meta, String facing, String shellMaterialId) {
         this.registryId = registryId;
         this.meta = meta;
         this.facing = facing;
+        this.shellMaterialId = shellMaterialId;
     }
 
     public static String key(String registryId, int meta) {
-        return key(registryId, meta, null);
+        return key(registryId, meta, null, null);
     }
 
     public static String key(String registryId, int meta, String facing) {
+        return key(registryId, meta, facing, null);
+    }
+
+    public static String key(String registryId, int meta, String facing, String shellMaterialId) {
+        String base;
         if (facing == null || facing.isEmpty()) {
-            return registryId + '\0' + meta;
+            base = registryId + '\0' + meta;
+        } else {
+            base = registryId + '\0' + meta + '\0' + facing;
         }
-        return registryId + '\0' + meta + '\0' + facing;
+        if (shellMaterialId == null || shellMaterialId.isEmpty()) {
+            return base;
+        }
+        return base + '\0' + shellMaterialId;
     }
 
     public String key() {
-        return key(registryId, meta, facing);
+        return key(registryId, meta, facing, shellMaterialId);
     }
 }

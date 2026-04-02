@@ -9,7 +9,9 @@ import net.minecraft.client.Minecraft;
 
 import com.github.wikimultistructure.sde.client.registry.gt.GtBlockClassRegistryPolicy;
 import com.github.wikimultistructure.sde.client.registry.gt.GtBlockMachinesRegistryPolicy;
+import com.github.wikimultistructure.sde.core.registry.AddonModsRegistryPolicyOrder;
 import com.github.wikimultistructure.sde.core.registry.BlockRegistryJson;
+import com.github.wikimultistructure.sde.core.registry.bartworks.BartWorksRenderProfiles;
 import com.github.wikimultistructure.sde.core.registry.gt.GtGregtechRegistryPolicyOrder;
 import com.github.wikimultistructure.sde.core.registry.gt.GtRenderProfiles;
 import com.google.gson.JsonObject;
@@ -20,7 +22,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 /**
  * 有序手工策略列表（客户端 block_registry dump）；首个 {@link BlockRegistryPolicy#matches} 胜出，否则 {@link BlockRegistryJson#writeUnknownEntry}。
  * <p>
- * GregTech 链顺序与 {@link GtGregtechRegistryPolicyOrder} 一致（机器最先，其余按类从窄到宽）。
+ * 顺序与 {@link AddonModsRegistryPolicyOrder} 一致（GregTech 机器与方块类在前，BartWorks 等 addon 在后）。
  */
 @SideOnly(Side.CLIENT)
 public final class BlockRegistryPolicies {
@@ -28,9 +30,10 @@ public final class BlockRegistryPolicies {
     private static final List<BlockRegistryPolicy> ALL = Collections.unmodifiableList(Arrays.asList(
         new GtBlockMachinesRegistryPolicy(GtGregtechRegistryPolicyOrder.MACHINES_WORLD),
         new GtBlockClassRegistryPolicy("gregtech.common.blocks.BlockFrameBox", GtRenderProfiles.FRAME, GtGregtechRegistryPolicyOrder.FRAME_WORLD),
-        new GtBlockClassRegistryPolicy("gregtech.common.blocks.BlockGlass1", GtRenderProfiles.GLASS, GtGregtechRegistryPolicyOrder.GLASS_WORLD),
+        new GtBlockClassRegistryPolicy("gregtech.common.blocks.BlockGlass1", GtRenderProfiles.GLASS, GtGregtechRegistryPolicyOrder.GLASS_WORLD,
+            "glass"),
         new GtBlockClassRegistryPolicy("gregtech.common.blocks.BlockTintedIndustrialGlass", GtRenderProfiles.GLASS_TINTED,
-            GtGregtechRegistryPolicyOrder.GLASS_TINTED_WORLD),
+            GtGregtechRegistryPolicyOrder.GLASS_TINTED_WORLD, "glass"),
         new GtBlockClassRegistryPolicy("gregtech.common.blocks.BlockCyclotronCoils", GtRenderProfiles.COIL_CYCLOTRON,
             GtGregtechRegistryPolicyOrder.COIL_CYCLOTRON_WORLD),
         new GtBlockClassRegistryPolicy("gregtech.common.blocks.BlockSheetMetal", GtRenderProfiles.SHEET_METAL,
@@ -38,7 +41,11 @@ public final class BlockRegistryPolicies {
         new GtBlockClassRegistryPolicy("gregtech.common.blocks.BlockReinforced", GtRenderProfiles.REINFORCED,
             GtGregtechRegistryPolicyOrder.REINFORCED_WORLD),
         new GtBlockClassRegistryPolicy("gregtech.common.blocks.BlockCasingsAbstract", GtRenderProfiles.CASING_SOLID,
-            GtGregtechRegistryPolicyOrder.CASING_SOLID_WORLD)));
+            GtGregtechRegistryPolicyOrder.CASING_SOLID_WORLD),
+        new GtBlockClassRegistryPolicy("bartworks.common.blocks.BWBlocksGlass", BartWorksRenderProfiles.GLASS,
+            AddonModsRegistryPolicyOrder.BARTWORKS_GLASS_WORLD, "glass"),
+        new GtBlockClassRegistryPolicy("bartworks.common.blocks.BWBlocksGlass2", BartWorksRenderProfiles.GLASS2,
+            AddonModsRegistryPolicyOrder.BARTWORKS_GLASS2_WORLD, "glass")));
 
     private BlockRegistryPolicies() {}
 

@@ -18,8 +18,8 @@ import com.github.wikimultistructure.sde.core.registry.BlockRegistryWorldPolicy;
  * <li>{@link GtBlockClassWorldPolicy} — {@code BlockReinforced}</li>
  * <li>{@link GtBlockClassWorldPolicy} — {@code BlockCasingsAbstract}</li>
  * </ol>
- * 须与 {@link com.github.wikimultistructure.sde.client.registry.BlockRegistryPolicies} 中 {@code GtBlockMachinesRegistryPolicy} / {@code GtBlockClassRegistryPolicy}
- * 顺序一致；profile 常量见 {@link GtRenderProfiles}。
+ * 须与 {@link com.github.wikimultistructure.sde.client.registry.BlockRegistryPolicies} 中 GregTech 段顺序一致；完整列表（含 BartWorks）见
+ * {@link com.github.wikimultistructure.sde.core.registry.AddonModsRegistryPolicyOrder}。profile 常量见 {@link GtRenderProfiles}。
  */
 public final class GtGregtechRegistryPolicyOrder {
 

@@ -10,8 +10,10 @@ import java.util.Collections;
 import java.util.List;
 
 import net.minecraft.block.Block;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.IIcon;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import cpw.mods.fml.relauncher.Side;
@@ -35,9 +37,116 @@ public final class GtTextureResolver {
 
     private static final String C_GREGTECH_API = "gregtech.api.GregTechAPI";
     private static final String C_IGREG_TECH_TILE = "gregtech.api.interfaces.tileentity.IGregTechTileEntity";
+    private static final String C_ITURNABLE = "gregtech.api.interfaces.tileentity.ITurnable";
+    private static final String C_MTE_HATCH = "gregtech.api.metatileentity.implementations.MTEHatch";
     private static final String C_FORGE_DIRECTION = "net.minecraftforge.common.util.ForgeDirection";
 
     private GtTextureResolver() {}
+
+    /**
+     * 仓室侧面壳层材质：与 GT5U {@code MTEHatch#getTexture} 在 {@code side != aFacing} 时返回的 {@code background} 一致
+     *（{@code texturePage/textureIndex} 或 {@code MACHINE_CASINGS[mTier]}）。
+     * <p>
+     * 必须使用<strong>世界 Tile 上的</strong> {@code IMetaTileEntity} 实例（含多方块
+     * {@code updateTexture} 后的状态），不得使用 {@code GregTechAPI.METATILEENTITIES[mId]} 原型。
+     *
+     * @return 规范化后的 bundle locator；无法解析时 {@code null}
+     */
+    public static String tryResolveHatchShellMaterialLocatorFromWorld(World world, int x, int y, int z) {
+        if (world == null) {
+            return null;
+        }
+        TileEntity te;
+        try {
+            te = world.getTileEntity(x, y, z);
+        } catch (Throwable ignored) {
+            return null;
+        }
+        if (te == null) {
+            return null;
+        }
+        try {
+            Class<?> igt = Class.forName(C_IGREG_TECH_TILE, false, te.getClass()
+                .getClassLoader());
+            if (!igt.isInstance(te)) {
+                return null;
+            }
+            Method getMte = igt.getMethod("getMetaTileEntity");
+            Object mte = getMte.invoke(te);
+            if (mte == null) {
+                return null;
+            }
+            Class<?> hatchClass = Class.forName(C_MTE_HATCH, false, mte.getClass()
+                .getClassLoader());
+            if (!hatchClass.isInstance(mte)) {
+                return null;
+            }
+
+            ForgeDirection facing = getFrontFacingForgeFromTile(te);
+            ForgeDirection side = sideForNonFrontHatchShell(facing);
+            ClassLoader cl = mte.getClass()
+                .getClassLoader();
+            Class<?> igteClass = Class.forName(C_IGREG_TECH_TILE, false, cl);
+            Object stub = createGregTechTileStub(igteClass);
+            int sampleSideOrdinal = ExportTextureLocator.DEFAULT_SAMPLE_SIDE;
+
+            for (int colorIndex : new int[] { 0, -1, 1 }) {
+                Object[] texturesMachine = invokeGetTextureMachine(mte, stub, side, facing, colorIndex, cl);
+                String raw = extractFirstLocator(texturesMachine, sampleSideOrdinal);
+                if (raw == null || ExportTextureLocator.isLikelyGtRenderingErrorLocator(raw)) {
+                    continue;
+                }
+                String n = ExportTextureLocator.normalizeLocatorForBundle(raw);
+                if (n != null && !ExportTextureLocator.isLikelyGtRenderingErrorLocator(n)) {
+                    return n;
+                }
+            }
+        } catch (Throwable ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    private static ForgeDirection getFrontFacingForgeFromTile(TileEntity te) {
+        try {
+            Class<?> it = Class.forName(C_ITURNABLE, false, te.getClass()
+                .getClassLoader());
+            if (!it.isInstance(te)) {
+                return ForgeDirection.NORTH;
+            }
+            Method m = it.getMethod("getFrontFacing");
+            Object r = m.invoke(te);
+            if (r instanceof ForgeDirection) {
+                return (ForgeDirection) r;
+            }
+            if (r instanceof Enum) {
+                return ForgeDirection.valueOf(((Enum<?>) r).name());
+            }
+        } catch (Throwable ignored) {
+            // ignore
+        }
+        return ForgeDirection.NORTH;
+    }
+
+    /** 任取一 {@code side != facing}，使 {@code MTEHatch#getTexture} 走侧面单层壳纹理分支 */
+    private static ForgeDirection sideForNonFrontHatchShell(ForgeDirection facing) {
+        if (facing == null || facing == ForgeDirection.UNKNOWN) {
+            return ForgeDirection.EAST;
+        }
+        switch (facing) {
+            case NORTH:
+            case SOUTH:
+                return ForgeDirection.EAST;
+            case EAST:
+            case WEST:
+                return ForgeDirection.NORTH;
+            case UP:
+            case DOWN:
+                return ForgeDirection.NORTH;
+            default:
+                return ForgeDirection.EAST;
+        }
+    }
 
     /**
      * @param mId               GT5U MetaTile ID（{@code METATILEENTITIES} 下标），与 {@code block_registry} 键 {@code gregtech:gt.blockmachines@n} 中 {@code n} 一致
@@ -330,6 +439,12 @@ public final class GtTextureResolver {
     /**
      * 从 GT {@code ITexture} 实现类中取出与图集一致的原始 {@code ns:path}；由 {@link ExportTextureLocator#resolve} 统一
      * {@link ExportTextureLocator#normalizeLocatorForBundle}。
+     * <p>
+     * <b>复制方块贴图（GT5U）</b>：由 {@code gregtech.api.render.TextureFactory} /
+     * {@code gregtech.common.render.GTBlockTextureBuilder#build()} 生成；非 CTM 时为
+     * {@code gregtech.common.render.GTCopiedBlockTextureRender}，CTM 或世界坐标时为
+     * {@code gregtech.common.render.GTCopiedCTMBlockTexture}。二者均含 {@code mBlock}/{@code mSide}/{@code mMeta}，
+     * 无 {@code IBlockAccess} 时对 CTM 类采用与 Render 类相同的 {@link Block#getIcon(int, int)} 降级。
      */
     static String locatorFromGtITexture(Object texture, int sampleSideOrdinal) {
         if (texture == null) {
@@ -375,21 +490,32 @@ public final class GtTextureResolver {
             }
             String cn2 = texture.getClass()
                 .getName();
-            if (cn2.contains("GTCopiedBlockTextureRender")) {
-                Object blk = readFieldChain(texture, "mBlock");
-                Object mSide = readFieldChain(texture, "mSide");
-                Object mMeta = readFieldChain(texture, "mMeta");
-                if (blk instanceof Block && mMeta instanceof Integer) {
-                    int sideVal = (mSide instanceof Number) ? ((Number) mSide).intValue() : 6;
-                    int meta = (Integer) mMeta;
-                    int ord = (sideVal == 6) ? sampleSideOrdinal : sideVal;
-                    IIcon icon = ((Block) blk).getIcon(ord, meta);
-                    // 回退到方块 IIcon：与 ExportTextureLocator 方块图集假设一致
-                    return ExportTextureLocator.locatorFromIcon(icon);
+            if (cn2.contains("GTCopiedBlockTextureRender") || cn2.contains("GTCopiedCTMBlockTexture")) {
+                String fromCopy = locatorFromGtCopiedBlockTextureFields(texture, sampleSideOrdinal);
+                if (fromCopy != null) {
+                    return fromCopy;
                 }
             }
         } catch (Throwable ignored) {
             // fall through
+        }
+        return null;
+    }
+
+    /**
+     * {@code GTCopiedBlockTextureRender} 与 {@code GTCopiedCTMBlockTexture} 共用字段：从源方块取 {@link IIcon}，
+     * 无世界上下文时无法复现 CTM 邻接，故与 {@code getIcon(ord, meta)} 降级一致。
+     */
+    private static String locatorFromGtCopiedBlockTextureFields(Object texture, int sampleSideOrdinal) {
+        Object blk = readFieldChain(texture, "mBlock");
+        Object mSide = readFieldChain(texture, "mSide");
+        Object mMeta = readFieldChain(texture, "mMeta");
+        if (blk instanceof Block && mMeta instanceof Integer) {
+            int sideVal = (mSide instanceof Number) ? ((Number) mSide).intValue() : 6;
+            int meta = (Integer) mMeta;
+            int ord = (sideVal == 6) ? sampleSideOrdinal : sideVal;
+            IIcon icon = ((Block) blk).getIcon(ord, meta);
+            return ExportTextureLocator.locatorFromIcon(icon);
         }
         return null;
     }

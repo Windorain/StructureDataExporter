@@ -22,7 +22,9 @@ import cpw.mods.fml.relauncher.SideOnly;
  * {@code material_registry} 仅由方块 {@link net.minecraft.client.renderer.texture.TextureMap} 的 {@code mapRegisteredSprites} 键经
  * {@link #iconNameToLocator}、{@link #normalizeLocatorForBundle} 枚举（见 {@link com.github.wikimultistructure.sde.mixin.interfaces.accessors.TextureMapAccessor}）。</li>
  * <li>{@link #resolve}：若 {@code renderProfile} 走 MTE 路径，则 {@link GtTextureResolver#tryMetaTileEntityLocator}，
- * 从 MTE/ITexture 解出与 {@link IIcon} 等价的原始 {@code ns:path}；否则走 {@link Block#getIcon} → {@link IIcon#getIconName()}。</li>
+ * 从 MTE/ITexture 解出与 {@link IIcon} 等价的原始 {@code ns:path}；否则走 {@link Block#getIcon} → {@link IIcon#getIconName()}。
+ * GregTech 复制方块纹理见 {@code gregtech.api.render.TextureFactory} / {@code gregtech.common.render.GTBlockTextureBuilder}，
+ * 解析细节见 {@link GtTextureResolver#locatorFromGtITexture}（{@code GTCopiedBlockTextureRender}、{@code GTCopiedCTMBlockTexture}）。</li>
  * <li>两条分支均在 {@link #resolve} 出口唯一调用 {@link #normalizeLocatorForBundle}（与磁盘 {@code assets/.../textures/...} 对齐）；{@link GtTextureResolver} 内部不再重复规范化。</li>
  * <li>材质条目用 {@link net.minecraft.util.ResourceLocation} 探测 PNG/mcmeta（不复制资源文件）；{@code block_registry} 中 {@code materialId} 与
  * {@code material_registry} 键使用<b>同一</b>规范化 locator 字符串。</li>

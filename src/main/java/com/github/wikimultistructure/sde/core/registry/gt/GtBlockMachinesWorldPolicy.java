@@ -1,5 +1,7 @@
 package com.github.wikimultistructure.sde.core.registry.gt;
 
+import java.lang.reflect.Method;
+
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.init.Blocks;
@@ -19,6 +21,8 @@ public final class GtBlockMachinesWorldPolicy implements BlockRegistryWorldPolic
 
     private static final DefaultBlockSampler FALLBACK = new DefaultBlockSampler();
 
+    private static final String HATCH_SHELL_SAMPLER = "com.github.wikimultistructure.sde.client.registry.gt.HatchShellMaterialSampler";
+
     @Override
     public boolean matches(Block block, String registryId, int meta) {
         return GregTechMetaTileRegistry.isGregTechBlockMachines(block, registryId);
@@ -36,9 +40,28 @@ public final class GtBlockMachinesWorldPolicy implements BlockRegistryWorldPolic
             Integer mId = GregTechMetaTileRegistry.tryGetMetaTileIdAt(world, x, y, z);
             if (mId != null) {
                 String facing = GregTechMetaTileRegistry.tryGetFrontFacingWikiFaceNameAt(world, x, y, z);
-                return new VoxelSample(registryId, mId, facing);
+                Object mte = GregTechMetaTileRegistry.tryGetMetaTileEntity(mId.intValue());
+                String shellMaterialId = null;
+                if (GregTechMetaTileRegistry.isMetaTileEntityHatch(mte)) {
+                    shellMaterialId = tryClientHatchShellMaterial(world, x, y, z);
+                }
+                return new VoxelSample(registryId, mId, facing, shellMaterialId);
             }
         }
         return FALLBACK.sample(world, x, y, z);
+    }
+
+    /**
+     * 客户端 {@link HatchShellMaterialSampler}；核心模块不直接依赖 client 类。
+     */
+    private static String tryClientHatchShellMaterial(World world, int x, int y, int z) {
+        try {
+            Class<?> c = Class.forName(HATCH_SHELL_SAMPLER, false, GtBlockMachinesWorldPolicy.class.getClassLoader());
+            Method m = c.getMethod("tryResolveNeighborShellLocator", World.class, int.class, int.class, int.class);
+            Object r = m.invoke(null, world, x, y, z);
+            return r instanceof String ? (String) r : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 }
