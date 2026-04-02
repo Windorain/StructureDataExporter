@@ -16,13 +16,11 @@ import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ResourceLocation;
 
-import com.github.wikimultistructure.sde.core.export.BlockRenderKindResolver;
-import com.github.wikimultistructure.sde.core.export.GtcBlockRenderKind;
+import com.github.wikimultistructure.sde.client.registry.BlockRegistryPolicies;
 import com.github.wikimultistructure.sde.core.export.PendingDumpFiles;
 import com.github.wikimultistructure.sde.mixin.interfaces.accessors.TextureMapAccessor;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -33,7 +31,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 /**
  * 客户端：读 {@link PendingDumpFiles} 触发文件 → 写出全量 {@code block_registry.json} / {@code material_registry.json}（不写 assets 镜像）。
  * <p>
- * {@code block_registry}：Block×meta 与 {@link ExportTextureLocator#resolve}；{@code material_registry}：仅由方块 {@link TextureMap} 的
+ * {@code block_registry}：Block×meta 经 {@link BlockRegistryPolicies} 策略链；{@code material_registry}：仅由方块 {@link TextureMap} 的
  * {@code mapRegisteredSprites} 键经规范化枚举（见 {@link TextureMapAccessor}）。
  */
 @SideOnly(Side.CLIENT)
@@ -123,7 +121,7 @@ public final class ExportBundleClient {
                     continue;
                 }
                 try {
-                    addBlockEntryForRegistryMeta(mc, block, registryId, meta, blocks);
+                    BlockRegistryPolicies.appendBlockEntry(mc, block, registryId, meta, key, blocks);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
@@ -173,54 +171,6 @@ public final class ExportBundleClient {
             registerMaterialMetadataOnly(mc, locator, materials);
         }
         return materials;
-    }
-
-    private static void addBlockEntryForRegistryMeta(Minecraft mc, Block block, String registryId, int meta, JsonObject blocks) {
-        String key = meta == 0 ? registryId : registryId + "@" + meta;
-        GtcBlockRenderKind logicalKind = BlockRenderKindResolver.resolve(block);
-        boolean occludes = block.isOpaqueCube();
-
-        JsonObject entry = new JsonObject();
-        entry.addProperty("occludesAdjacentFaces", occludes);
-
-        String locator = ExportTextureLocator.resolve(block, meta, logicalKind);
-
-        if (locator != null && texturePngExistsForLocator(mc, locator)) {
-            entry.addProperty("meshKind", "SimpleCube");
-            if (logicalKind != null) {
-                entry.addProperty("logicalKind", logicalKind.name());
-            }
-            JsonObject faces = new JsonObject();
-            JsonObject all = new JsonObject();
-            JsonArray layers = new JsonArray();
-            JsonObject layer = new JsonObject();
-            layer.addProperty("materialId", locator);
-            layer.addProperty("layerRole", "base");
-            layers.add(layer);
-            all.add("layers", layers);
-            faces.add("all", all);
-            entry.add("faces", faces);
-        } else if (logicalKind != null) {
-            entry.addProperty("meshKind", "SimpleCube");
-            entry.addProperty("logicalKind", logicalKind.name());
-            entry.add("faces", new JsonObject());
-        } else {
-            entry.addProperty("meshKind", "Unknown");
-            entry.add("faces", new JsonObject());
-        }
-
-        blocks.add(key, entry);
-    }
-
-    private static boolean texturePngExistsForLocator(Minecraft mc, String locator) {
-        int colon = locator.indexOf(':');
-        if (colon < 0) {
-            return false;
-        }
-        String ns = locator.substring(0, colon);
-        String path = locator.substring(colon + 1);
-        ResourceLocation texLoc = new ResourceLocation(ns, "textures/" + path + ".png");
-        return resourceExists(mc, texLoc);
     }
 
     /**

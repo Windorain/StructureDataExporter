@@ -12,8 +12,8 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
 
 import com.github.wikimultistructure.sde.core.export.PendingDumpFiles;
-import com.github.wikimultistructure.sde.core.sampling.DefaultBlockSampler;
 import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
+import com.github.wikimultistructure.sde.core.sampling.PolicyBackedBlockSampler;
 import com.github.wikimultistructure.sde.core.scan.StructureScan;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -43,7 +43,7 @@ public final class ExportSession {
     private String structureId = "structuredata.exported";
     private int activeFrame;
     private final Map<Integer, String> frameJson = new TreeMap<>();
-    private IBlockSampler sampler = new DefaultBlockSampler();
+    private IBlockSampler sampler = new PolicyBackedBlockSampler();
 
     private ExportSession() {}
 

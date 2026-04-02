@@ -3,7 +3,8 @@ package com.github.wikimultistructure.sde.core.sampling;
 import net.minecraft.world.World;
 
 /**
- * 方块解析接口：默认实现仅 Block + meta；可替换为带 TE/NBT 的 Enricher。
+ * 方块解析接口：默认 {@link DefaultBlockSampler}；结构导出默认 {@link PolicyBackedBlockSampler}（与
+ * {@link com.github.wikimultistructure.sde.core.registry.BlockRegistryWorldPolicies} 一致）。
  */
 public interface IBlockSampler {
 
