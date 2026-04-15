@@ -119,7 +119,17 @@ public final class MaterialKeyResolver {
                 }
             }
             remapped.add(
-                new TessellatorCaptureState.CapturedVertex(v.x, v.y, v.z, u, vv, v.brightness, v.colorArgb));
+                new TessellatorCaptureState.CapturedVertex(
+                    v.x,
+                    v.y,
+                    v.z,
+                    u,
+                    vv,
+                    v.brightness,
+                    v.colorArgb,
+                    v.tessOffsetX,
+                    v.tessOffsetY,
+                    v.tessOffsetZ));
         }
         q.vertices.clear();
         q.vertices.addAll(remapped);

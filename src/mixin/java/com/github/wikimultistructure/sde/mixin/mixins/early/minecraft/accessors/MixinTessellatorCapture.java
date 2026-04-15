@@ -31,6 +31,15 @@ public abstract class MixinTessellatorCapture {
     @Shadow
     private boolean hasColor;
 
+    @Shadow
+    private double xOffset;
+
+    @Shadow
+    private double yOffset;
+
+    @Shadow
+    private double zOffset;
+
     @Inject(method = "addVertex", at = @At("TAIL"))
     private void sde$afterAddVertex(double x, double y, double z, CallbackInfo ci) {
         if (!TessellatorCaptureState.isRecording() || !this.hasTexture) {
@@ -47,6 +56,6 @@ public abstract class MixinTessellatorCapture {
         double v = Float.intBitsToFloat(this.rawBuffer[base + 4]);
         int color = this.hasColor ? this.rawBuffer[base + 5] : 0xFFFFFFFF;
         int brightness = this.hasBrightness ? this.rawBuffer[base + 7] : 0;
-        TessellatorCaptureState.onVertexRecorded(vx, vy, vz, u, v, brightness, color);
+        TessellatorCaptureState.onVertexRecorded(vx, vy, vz, u, v, brightness, color, this.xOffset, this.yOffset, this.zOffset);
     }
 }

@@ -22,6 +22,10 @@ import com.google.gson.JsonPrimitive;
  * 服务端写出 {@link #STRUCTURE_DATA_SCHEMA_SCAN}：逻辑 {@code blockPalette} + 空 {@code geometry.quads}、空
  * {@code materialPalette}，须由客户端 {@link com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureService}
  * 烘焙后抬升至 {@link #STRUCTURE_DATA_SCHEMA_FINAL}。
+ * <p>
+ * 终态几何顶点为<strong>块局部</strong> [0,1]³（相对方块最小角），见
+ * {@link com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState} 与
+ * {@link com.github.wikimultistructure.sde.client.meshcapture.CaptureCoordinatePolicy}。
  */
 public final class StructureScan {
 

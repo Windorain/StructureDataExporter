@@ -195,7 +195,20 @@ public final class MeshCaptureService {
             CapturedBlockInstance inst = new CapturedBlockInstance();
             int[] wForCapture = new int[3];
             blockAccess.structToWorld(x, y, z, wForCapture);
-            TessellatorCaptureState.beginBlock(x, y, z, label, wForCapture[0], wForCapture[1], wForCapture[2]);
+            int blockMeta = blockAccess.getBlockMetadata(x, y, z);
+            int renderType = b.getRenderType();
+            TessellatorCaptureState.beginBlock(
+                x,
+                y,
+                z,
+                label,
+                wForCapture[0],
+                wForCapture[1],
+                wForCapture[2],
+                b,
+                blockMeta,
+                renderType,
+                vs.registryId);
             Tessellator tess = Tessellator.instance;
             tess.startDrawingQuads();
             MeshCaptureRenderPreparation.beforeBlockRender(rb);
@@ -203,9 +216,10 @@ public final class MeshCaptureService {
             int quadsAfterWorld = TessellatorCaptureState.currentBlockRecordedQuadCount();
             tess.draw();
             if (quadsAfterWorld == 0) {
+                TessellatorCaptureState.markInventoryFallbackForActiveCapture();
                 GL11.glPushMatrix();
                 try {
-                    rb.renderBlockAsItem(b, blockAccess.getBlockMetadata(x, y, z), 1.0F);
+                    rb.renderBlockAsItem(b, blockMeta, 1.0F);
                 } catch (Throwable ignored) {
                     /* 少数方块在假世界/库存路径下可能抛错，跳过即可 */
                 } finally {
