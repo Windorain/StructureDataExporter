@@ -31,6 +31,7 @@ import org.lwjgl.opengl.GL11;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedBlockInstance;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
+import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -210,7 +211,9 @@ public final class MeshCaptureService {
             Tessellator tess = Tessellator.instance;
             tess.startDrawingQuads();
             MeshCaptureRenderPreparation.beforeBlockRender(rb);
-            rb.renderBlockByRenderType(b, wx, wy, wz);
+            if (!renderGregTechMachinesWithForgeRenderPasses(rb, b, wx, wy, wz)) {
+                rb.renderBlockByRenderType(b, wx, wy, wz);
+            }
             int quadsAfterWorld = TessellatorCaptureState.currentBlockRecordedQuadCount();
             tess.draw();
             if (quadsAfterWorld == 0) {
@@ -296,6 +299,33 @@ public final class MeshCaptureService {
         structure.addProperty("mode", "voxelPalette");
         structure.remove("cellTypes");
         structure.remove("worldGrid");
+    }
+
+    /**
+     * GT 机器块：{@code GTRenderedTexture} 的 overlay 仅在 world render pass 1 绘制；捕获时补跑 pass 0 + 1。
+     *
+     * @return {@code true} 已处理（含无法改 pass 时单次渲染）；{@code false} 非 GT 机器块，由调用方渲染。
+     */
+    private static boolean renderGregTechMachinesWithForgeRenderPasses(RenderBlocks rb, Block b, int wx, int wy, int wz) {
+        GameRegistry.UniqueIdentifier uid = GameRegistry.findUniqueIdentifierFor(b);
+        String reg = uid == null ? "" : uid.toString();
+        if (!GregTechMetaTileRegistry.isGregTechBlockMachines(b, reg)) {
+            return false;
+        }
+        if (!ForgeWorldRenderPassUtil.canSetPass()) {
+            rb.renderBlockByRenderType(b, wx, wy, wz);
+            return true;
+        }
+        int saved = ForgeWorldRenderPassUtil.getPass();
+        try {
+            ForgeWorldRenderPassUtil.setPass(0);
+            rb.renderBlockByRenderType(b, wx, wy, wz);
+            ForgeWorldRenderPassUtil.setPass(1);
+            rb.renderBlockByRenderType(b, wx, wy, wz);
+        } finally {
+            ForgeWorldRenderPassUtil.setPass(saved);
+        }
+        return true;
     }
 
     private static JsonObject emptyGeometryJson() {
