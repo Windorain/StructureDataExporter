@@ -4,6 +4,7 @@ import net.minecraftforge.common.MinecraftForge;
 
 import com.github.wikimultistructure.sde.client.SelectionClientState;
 import com.github.wikimultistructure.sde.client.export.ExportBundleTickHandler;
+import com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureClient;
 import com.github.wikimultistructure.sde.client.render.SelectionBoxRenderer;
 import com.github.wikimultistructure.sde.network.packet.PacketSyncSelection;
 
@@ -27,5 +28,10 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void applySelectionSync(PacketSyncSelection packet) {
         SelectionClientState.apply(packet);
+    }
+
+    @Override
+    public void enqueueMeshCapturePayload(String fileName, byte[] utf8Json) {
+        MeshCaptureClient.enqueuePayload(fileName, utf8Json);
     }
 }

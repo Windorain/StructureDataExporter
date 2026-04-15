@@ -3,6 +3,8 @@ package com.github.wikimultistructure.sde.core.sampling;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.init.Blocks;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 
 import com.github.wikimultistructure.sde.core.registry.BlockRegistryWorldPolicies;
@@ -26,11 +28,27 @@ public final class PolicyBackedBlockSampler implements IBlockSampler {
         int meta = world.getBlockMetadata(x, y, z);
         GameRegistry.UniqueIdentifier uid = GameRegistry.findUniqueIdentifierFor(block);
         String registryId = uid == null ? ("unknown:" + block.getUnlocalizedName()) : uid.toString();
+        VoxelSample vs;
         for (BlockRegistryWorldPolicy p : BlockRegistryWorldPolicies.all()) {
             if (p.matches(block, registryId, meta)) {
-                return p.sample(world, x, y, z);
+                vs = p.sample(world, x, y, z);
+                return attachTileNbt(world, x, y, z, vs);
             }
         }
-        return FALLBACK.sample(world, x, y, z);
+        vs = FALLBACK.sample(world, x, y, z);
+        return attachTileNbt(world, x, y, z, vs);
+    }
+
+    private static VoxelSample attachTileNbt(World world, int x, int y, int z, VoxelSample vs) {
+        if (vs == null || "air".equals(vs.registryId)) {
+            return vs;
+        }
+        TileEntity te = world.getTileEntity(x, y, z);
+        if (te == null) {
+            return vs;
+        }
+        NBTTagCompound tag = new NBTTagCompound();
+        te.writeToNBT(tag);
+        return new VoxelSample(vs.registryId, vs.meta, vs.facing, vs.shellMaterialId, tag);
     }
 }

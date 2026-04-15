@@ -2,6 +2,8 @@ package com.github.wikimultistructure.sde.client.export;
 
 import net.minecraft.client.Minecraft;
 
+import com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureClient;
+
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import cpw.mods.fml.relauncher.Side;
@@ -13,6 +15,7 @@ public final class ExportBundleTickHandler {
     public void onClientTick(TickEvent.ClientTickEvent e) {
         if (e.side == Side.CLIENT && e.phase == TickEvent.Phase.END) {
             ExportBundleClient.tickConsumePendingDumpIfAny(Minecraft.getMinecraft());
+            MeshCaptureClient.tickConsumeOne();
         }
     }
 }

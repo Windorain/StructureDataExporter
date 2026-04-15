@@ -1,5 +1,8 @@
 package com.github.wikimultistructure.sde.server.command;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -79,8 +82,12 @@ public class CommandSde extends CommandBase {
                     break;
                 case "export":
                     if (!checkPlayer(sender)) return;
+                    EntityPlayerMP exporter = (EntityPlayerMP) sender;
                     String path = s.exportToFile();
                     sender.addChatMessage(new ChatComponentText("SDE: 已写出场景文件: " + path));
+                    java.io.File outFile = new java.io.File(path);
+                    byte[] payload = Files.readAllBytes(Paths.get(path));
+                    SdeNetwork.sendEnrichExportedScene(exporter, outFile.getName(), payload);
                     break;
                 case "dump":
                     if (!checkPlayer(sender)) return;

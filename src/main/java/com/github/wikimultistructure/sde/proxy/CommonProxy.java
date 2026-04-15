@@ -14,4 +14,9 @@ public class CommonProxy implements IProxy {
     public void applySelectionSync(PacketSyncSelection packet) {
         // 服务端无客户端缓存
     }
+
+    @Override
+    public void enqueueMeshCapturePayload(String fileName, byte[] utf8Json) {
+        // 仅客户端处理
+    }
 }

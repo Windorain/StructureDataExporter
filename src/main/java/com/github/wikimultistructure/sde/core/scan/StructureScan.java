@@ -1,10 +1,13 @@
 package com.github.wikimultistructure.sde.core.scan;
 
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.world.World;
 
 import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
@@ -73,9 +76,25 @@ public final class StructureScan {
             if (s.shellMaterialId != null && !s.shellMaterialId.isEmpty()) {
                 p.addProperty("shellMaterialId", s.shellMaterialId);
             }
+            if (s.tileNbt != null) {
+                try {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    CompressedStreamTools.writeCompressed(s.tileNbt, baos);
+                    p.addProperty("tileNbtB64", Base64.getEncoder()
+                        .encodeToString(baos.toByteArray()));
+                } catch (Exception ignored) {
+                    /*跳过无法序列化的 TE */
+                }
+            }
             palette.add(p);
         }
         root.add("palette", palette);
+
+        JsonObject scanBounds = new JsonObject();
+        scanBounds.addProperty("minX", ax);
+        scanBounds.addProperty("maxY", by);
+        scanBounds.addProperty("minZ", az);
+        root.add("scanBounds", scanBounds);
 
         JsonArray zSlices = new JsonArray();
         for (int zi = 0; zi < sizeZ; zi++) {

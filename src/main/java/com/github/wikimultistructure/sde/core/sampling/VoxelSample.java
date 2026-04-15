@@ -1,5 +1,11 @@
 package com.github.wikimultistructure.sde.core.sampling;
 
+import java.io.ByteArrayOutputStream;
+import java.security.MessageDigest;
+
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.nbt.NBTTagCompound;
+
 import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
 
 /**
@@ -10,6 +16,8 @@ import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
  * 可选 {@link #facing}：机器正面在世界中的外法线（Wiki {@code FaceName}，如 {@code -z}）；与 block_registry 以北为正面一致。
  * <p>
  * 可选 {@link #shellMaterialId}：GT 仓室（MTEHatch）在结构导出时由世界邻格解析的壳层材质 locator（与 {@code material_registry} 键一致）；非仓室或未解析时为 {@code null}。
+ * <p>
+ * 可选 {@link #tileNbt}：扫描时该格 {@link net.minecraft.tileentity.TileEntity#writeToNBT} 的快照，供客户端网格捕获时在假 {@link net.minecraft.world.IBlockAccess} 上还原 TE（如 GT ISBR）。
  */
 public final class VoxelSample {
 
@@ -24,31 +32,53 @@ public final class VoxelSample {
      * 仓室壳层材质 locator（与 block_registry / material_registry 一致）；仅 Hatch 扫描时可能非空。
      */
     public final String shellMaterialId;
+    /**
+     * 非空时表示该格有 TileEntity，且与扫描时世界状态一致（用于客户端 capture）。
+     */
+    public final NBTTagCompound tileNbt;
 
     public VoxelSample(String registryId, int meta) {
-        this(registryId, meta, null, null);
+        this(registryId, meta, null, null, null);
     }
 
     public VoxelSample(String registryId, int meta, String facing) {
-        this(registryId, meta, facing, null);
+        this(registryId, meta, facing, null, null);
     }
 
     public VoxelSample(String registryId, int meta, String facing, String shellMaterialId) {
+        this(registryId, meta, facing, shellMaterialId, null);
+    }
+
+    public VoxelSample(String registryId, int meta, String facing, String shellMaterialId, NBTTagCompound tileNbt) {
         this.registryId = registryId;
         this.meta = meta;
         this.facing = facing;
         this.shellMaterialId = shellMaterialId;
+        this.tileNbt = tileNbt;
     }
 
     public static String key(String registryId, int meta) {
-        return key(registryId, meta, null, null);
+        return key(registryId, meta, null, null, null);
     }
 
     public static String key(String registryId, int meta, String facing) {
-        return key(registryId, meta, facing, null);
+        return key(registryId, meta, facing, null, null);
     }
 
     public static String key(String registryId, int meta, String facing, String shellMaterialId) {
+        return key(registryId, meta, facing, shellMaterialId, null);
+    }
+
+    public static String key(String registryId, int meta, String facing, String shellMaterialId,
+        NBTTagCompound tileNbt) {
+        String base = keyNoNbt(registryId, meta, facing, shellMaterialId);
+        if (tileNbt == null) {
+            return base;
+        }
+        return base + '\0' + "nbt:" + tileNbtDigest(tileNbt);
+    }
+
+    private static String keyNoNbt(String registryId, int meta, String facing, String shellMaterialId) {
         String base;
         if (facing == null || facing.isEmpty()) {
             base = registryId + '\0' + meta;
@@ -61,7 +91,27 @@ public final class VoxelSample {
         return base + '\0' + shellMaterialId;
     }
 
+    /** 用于 palette 去重的短指纹（同 TE 快照视为同一 palette 项）。 */
+    public static String tileNbtDigest(NBTTagCompound tag) {
+        if (tag == null) {
+            return "";
+        }
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            CompressedStreamTools.writeCompressed(tag, baos);
+            byte[] d = MessageDigest.getInstance("MD5")
+                .digest(baos.toByteArray());
+            StringBuilder sb = new StringBuilder(8);
+            for (int i = 0; i < 4; i++) {
+                sb.append(String.format("%02x", d[i] & 0xff));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "err";
+        }
+    }
+
     public String key() {
-        return key(registryId, meta, facing, shellMaterialId);
+        return key(registryId, meta, facing, shellMaterialId, tileNbt);
     }
 }
