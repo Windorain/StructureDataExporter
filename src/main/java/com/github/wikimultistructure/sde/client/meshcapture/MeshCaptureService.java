@@ -5,11 +5,15 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.List;
-import java.util.Map;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
@@ -27,20 +31,19 @@ import org.lwjgl.opengl.GL11;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedBlockInstance;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
-import com.github.wikimultistructure.sde.core.scan.StructureScan;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * Client-only：按 blockPalette 槽在客户端世界烘焙 BakedQuads，写入 {@code materialPalette}，抬升 schema 至
- * {@link StructureScan#STRUCTURE_DATA_SCHEMA_FINAL}；删除旧 {@code capture}。
+ * Client-only：读取 {@code mode=voxelScan}，在客户端世界坐标下烘焙 BakedQuads，按几何指纹合并槽位，写出 {@code mode=voxelPalette}（无根级 {@code schemaVersion}，{@code blockPalette} 无 {@code tileNbtB64}）。
  */
 @SideOnly(Side.CLIENT)
 public final class MeshCaptureService {
@@ -98,7 +101,7 @@ public final class MeshCaptureService {
     }
 
     /**
-     * 就地修改 root：单文件 StructureData 或 World 文档内每一帧的 structure 均执行烘焙。
+     * 就地修改 root：单文件 {@code voxelScan} 或 World 文档内每一帧的 {@code structure} 均执行烘焙。
      */
     public static void finalizeStructureJson(JsonObject root) throws Exception {
         if (root.has("frames")) {
@@ -112,7 +115,7 @@ public final class MeshCaptureService {
             }
             return;
         }
-        if (root.has("mode") && "voxelPalette".equals(root.get("mode")
+        if (root.has("mode") && "voxelScan".equals(root.get("mode")
             .getAsString())) {
             finalizeSingleStructure(root);
         }
@@ -122,90 +125,84 @@ public final class MeshCaptureService {
         if (structure == null || !structure.has("cellGrid")) {
             return;
         }
-        ensureBlockPalette(structure);
-        if (!structure.has("scanBounds")) {
-            throw new IllegalStateException("finalize requires scanBounds for client world mapping.");
+        if (!structure.has("mode") || !"voxelScan".equals(structure.get("mode")
+            .getAsString())) {
+            return;
         }
+        if (!structure.has("cellTypes") || !structure.has("worldGrid")) {
+            throw new IllegalStateException("voxelScan finalize requires cellTypes and worldGrid.");
+        }
+        structure.remove("capture");
+        structure.remove("schemaVersion");
+
         World world = Minecraft.getMinecraft().theWorld;
         if (world == null) {
             throw new IllegalStateException("finalize requires Minecraft.theWorld (client).");
         }
-        structure.remove("capture");
 
-        JsonArray blockPalette = structure.getAsJsonArray("blockPalette");
+        JsonArray cellTypesJson = structure.getAsJsonArray("cellTypes");
         JsonArray gridArr = structure.getAsJsonArray("cellGrid");
-        VoxelSample[] voxelByIndex = parseBlockPaletteAsVoxelSamples(blockPalette);
+        JsonArray worldGridArr = structure.getAsJsonArray("worldGrid");
+        VoxelSample[] cellTypes = parseCellTypes(cellTypesJson);
         int[][][] cellGrid = parseCellGrid(gridArr);
-        int[] scanBounds = parseScanBounds(structure);
+        int[][][][] worldCoords = parseWorldGrid(worldGridArr, cellGrid);
 
         int sizeZ = cellGrid.length;
         int sizeRow = cellGrid[0].length;
         int sizeCol = cellGrid[0][0].length;
-        int minX = 0;
-        int minY = 0;
-        int minZ = 0;
-        int maxX = sizeCol - 1;
-        int maxY = sizeRow - 1;
-        int maxZ = sizeZ - 1;
 
-        WorldDelegatingBlockAccess blockAccess = new WorldDelegatingBlockAccess(
-            world,
-            minX,
-            minY,
-            minZ,
-            maxX,
-            maxY,
-            maxZ,
-            scanBounds[0],
-            scanBounds[1],
-            scanBounds[2]);
-        validateAllChunksLoaded(world, blockAccess, sizeZ, sizeRow, sizeCol, minX, maxY, minZ);
-        RenderBlocks rb = new RenderBlocks(blockAccess);
+        validateWorldGridChunks(world, cellGrid, worldCoords);
+
+        RenderBlocks rb = new RenderBlocks(world);
         rb.renderAllFaces = true;
-        rb.blockAccess = blockAccess;
+        rb.blockAccess = world;
 
         TextureMap textureMap = Minecraft.getMinecraft()
             .getTextureMapBlocks();
         SamplerTable samplers = new SamplerTable();
 
-        for (int pi = 0; pi < blockPalette.size(); pi++) {
-            JsonObject entry = blockPalette.get(pi)
-                .getAsJsonObject();
-            VoxelSample vs = voxelByIndex[pi];
-            if ("air".equals(vs.registryId)) {
-                writeEmptyBakedGeometry(entry);
+        Map<Integer, JsonObject> geometryByCellType = new HashMap<>();
+        Map<Integer, Boolean> opaqueByCellType = new HashMap<>();
+
+        for (int ti = 0; ti < cellTypes.length; ti++) {
+            VoxelSample vs = cellTypes[ti];
+            if ("air".equals(vs.registryId) && ti == 0) {
                 continue;
             }
-            int[] cell = findFirstCellForPaletteIndex(cellGrid, pi);
+            if ("air".equals(vs.registryId)) {
+                throw new IllegalStateException("cellTypes[" + ti + "] is air but index != 0.");
+            }
+            int[] cell = findFirstCellForPaletteIndex(cellGrid, ti);
             if (cell == null) {
-                writeEmptyBakedGeometry(entry);
+                geometryByCellType.put(ti, emptyGeometryJson());
+                opaqueByCellType.put(ti, false);
                 continue;
             }
             int zi = cell[0];
             int ri = cell[1];
             int ci = cell[2];
-            int x = minX + ci;
-            int y = maxY - ri;
-            int z = minZ + zi;
-            Block b = blockAccess.getBlock(x, y, z);
+            int wx = worldCoords[zi][ri][ci][0];
+            int wy = worldCoords[zi][ri][ci][1];
+            int wz = worldCoords[zi][ri][ci][2];
+
+            Block b = world.getBlock(wx, wy, wz);
             if (b == null || b == Blocks.air) {
-                writeEmptyBakedGeometry(entry);
+                geometryByCellType.put(ti, emptyGeometryJson());
+                opaqueByCellType.put(ti, false);
                 continue;
             }
-            String label = captureLabel(vs, b, blockAccess, x, y, z);
+            String label = captureLabel(vs, b, world, wx, wy, wz);
             CapturedBlockInstance inst = new CapturedBlockInstance();
-            int[] wForCapture = new int[3];
-            blockAccess.structToWorld(x, y, z, wForCapture);
-            int blockMeta = blockAccess.getBlockMetadata(x, y, z);
+            int blockMeta = world.getBlockMetadata(wx, wy, wz);
             int renderType = b.getRenderType();
             TessellatorCaptureState.beginBlock(
-                x,
-                y,
-                z,
+                wx,
+                wy,
+                wz,
                 label,
-                wForCapture[0],
-                wForCapture[1],
-                wForCapture[2],
+                wx,
+                wy,
+                wz,
                 b,
                 blockMeta,
                 renderType,
@@ -213,7 +210,7 @@ public final class MeshCaptureService {
             Tessellator tess = Tessellator.instance;
             tess.startDrawingQuads();
             MeshCaptureRenderPreparation.beforeBlockRender(rb);
-            rb.renderBlockByRenderType(b, x, y, z);
+            rb.renderBlockByRenderType(b, wx, wy, wz);
             int quadsAfterWorld = TessellatorCaptureState.currentBlockRecordedQuadCount();
             tess.draw();
             if (quadsAfterWorld == 0) {
@@ -222,33 +219,159 @@ public final class MeshCaptureService {
                 try {
                     rb.renderBlockAsItem(b, blockMeta, 1.0F);
                 } catch (Throwable ignored) {
-                    /* 少数方块在假世界/库存路径下可能抛错，跳过即可 */
+                    /* 少数方块在库存路径下可能抛错 */
                 } finally {
                     GL11.glPopMatrix();
                 }
             }
             TessellatorCaptureState.endBlock(inst);
             if (inst.quads.isEmpty()) {
-                writeEmptyBakedGeometry(entry);
+                geometryByCellType.put(ti, emptyGeometryJson());
+                opaqueByCellType.put(ti, false);
             } else {
                 attachMaterials(inst, textureMap, samplers);
-                entry.add("geometry", bakedQuadsGeometryFromCapture(inst));
-                entry.addProperty("renderMode", "BakedQuads");
-                entry.addProperty("occludesAdjacentFaces", b.isOpaqueCube());
+                JsonObject geo = bakedQuadsGeometryFromCapture(inst);
+                geometryByCellType.put(ti, geo);
+                opaqueByCellType.put(ti, b.isOpaqueCube());
             }
         }
 
+        /* 几何指纹合并 → blockPalette + remapped cellGrid */
+        int nextFinal = 1;
+        Map<String, Integer> sigToFinal = new HashMap<>();
+        Map<Integer, Integer> cellTypeToFinal = new HashMap<>();
+        cellTypeToFinal.put(0, 0);
+        Map<Integer, VoxelSample> repForFinal = new HashMap<>();
+        Map<Integer, JsonObject> geometryForFinal = new HashMap<>();
+        Map<Integer, Boolean> opaqueForFinal = new HashMap<>();
+
+        for (int ti = 1; ti < cellTypes.length; ti++) {
+            JsonObject geom = geometryByCellType.get(ti);
+            if (geom == null) {
+                geom = emptyGeometryJson();
+            }
+            String sig = geometrySignature(geom);
+            Integer fin = sigToFinal.get(sig);
+            if (fin == null) {
+                fin = Integer.valueOf(nextFinal++);
+                sigToFinal.put(sig, fin);
+                repForFinal.put(fin, cellTypes[ti]);
+                geometryForFinal.put(fin, deepCopyJsonObject(geom));
+                opaqueForFinal.put(fin, opaqueByCellType.getOrDefault(ti, false));
+            }
+            cellTypeToFinal.put(ti, fin);
+        }
+
+        JsonArray blockPalette = new JsonArray();
+        blockPalette.add(airBlockPaletteEntry());
+        for (int fi = 1; fi < nextFinal; fi++) {
+            VoxelSample r = repForFinal.get(fi);
+            JsonObject p = new JsonObject();
+            p.addProperty("registryId", r.registryId);
+            p.addProperty("meta", r.meta);
+            if (r.facing != null && !r.facing.isEmpty()) {
+                p.addProperty("facing", r.facing);
+            }
+            p.addProperty("renderMode", "BakedQuads");
+            p.add("geometry", deepCopyJsonObject(geometryForFinal.get(fi)));
+            p.addProperty("occludesAdjacentFaces", opaqueForFinal.getOrDefault(fi, false)
+                .booleanValue());
+            blockPalette.add(p);
+        }
+
+        int[][][] remapped = new int[sizeZ][sizeRow][sizeCol];
+        for (int zi = 0; zi < sizeZ; zi++) {
+            for (int ri = 0; ri < sizeRow; ri++) {
+                for (int ci = 0; ci < sizeCol; ci++) {
+                    int oldIdx = cellGrid[zi][ri][ci];
+                    remapped[zi][ri][ci] = cellTypeToFinal.getOrDefault(oldIdx, 0)
+                        .intValue();
+                }
+            }
+        }
+
+        structure.add("blockPalette", blockPalette);
+        structure.add("cellGrid", cellGridToJson(remapped));
         structure.add("materialPalette", samplers.toMaterialPalette());
-        structure.addProperty("schemaVersion", StructureScan.STRUCTURE_DATA_SCHEMA_FINAL);
+        structure.addProperty("mode", "voxelPalette");
+        structure.remove("cellTypes");
+        structure.remove("worldGrid");
     }
 
-    private static void writeEmptyBakedGeometry(JsonObject entry) {
+    private static JsonObject emptyGeometryJson() {
         JsonObject geometry = new JsonObject();
         geometry.addProperty("encoding", "bakedQuadsJsonV1");
         geometry.add("quads", new JsonArray());
-        entry.add("geometry", geometry);
-        entry.addProperty("renderMode", "BakedQuads");
-        entry.addProperty("occludesAdjacentFaces", false);
+        return geometry;
+    }
+
+    private static JsonObject airBlockPaletteEntry() {
+        JsonObject p = new JsonObject();
+        p.addProperty("registryId", "air");
+        p.addProperty("meta", 0);
+        p.addProperty("renderMode", "BakedQuads");
+        p.add("geometry", emptyGeometryJson());
+        p.addProperty("occludesAdjacentFaces", false);
+        return p;
+    }
+
+    /** 稳定几何指纹：四边形排序后，顶点与 UV 量化，SHA-256 Base64。 */
+    private static String geometrySignature(JsonObject geometry) {
+        try {
+            JsonArray quads = geometry.getAsJsonArray("quads");
+            List<String> quadLines = new ArrayList<>();
+            for (JsonElement qe : quads) {
+                JsonObject q = qe.getAsJsonObject();
+                int mat = q.get("materialIndex")
+                    .getAsInt();
+                JsonArray verts = q.getAsJsonArray("vertices");
+                List<String> vparts = new ArrayList<>();
+                for (JsonElement ve : verts) {
+                    JsonObject v = ve.getAsJsonObject();
+                    int br = v.has("brightness") ? v.get("brightness")
+                        .getAsInt() : 0;
+                    int col = v.has("color") ? v.get("color")
+                        .getAsInt() : 0;
+                    vparts.add(String.format(
+                        Locale.ROOT,
+                        "%.4f,%.4f,%.4f,%.4f,%.4f,%d,%d",
+                        quant4(v.get("x")),
+                        quant4(v.get("y")),
+                        quant4(v.get("z")),
+                        quant4(v.get("u")),
+                        quant4(v.get("v")),
+                        br,
+                        col));
+                }
+                Collections.sort(vparts);
+                StringBuilder sb = new StringBuilder();
+                sb.append(mat)
+                    .append('|');
+                for (String s : vparts) {
+                    sb.append(s)
+                        .append(';');
+                }
+                quadLines.add(sb.toString());
+            }
+            Collections.sort(quadLines);
+            String joined = String.join("\n", quadLines);
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(joined.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder()
+                .encodeToString(digest);
+        } catch (Exception e) {
+            return "sig-error:" + String.valueOf(geometry);
+        }
+    }
+
+    private static double quant4(JsonElement e) {
+        double x = e.getAsDouble();
+        return Math.round(x * 10000.0) / 10000.0;
+    }
+
+    private static JsonObject deepCopyJsonObject(JsonObject src) {
+        return new JsonParser().parse(src.toString())
+            .getAsJsonObject();
     }
 
     private static JsonObject bakedQuadsGeometryFromCapture(CapturedBlockInstance inst) {
@@ -277,128 +400,111 @@ public final class MeshCaptureService {
         return geometry;
     }
 
-    private static void ensureBlockPalette(JsonObject structure) {
-        if (structure.has("blockPalette")) {
-            return;
-        }
-        if (!structure.has("palette")) {
-            throw new IllegalStateException("Structure requires blockPalette or legacy palette.");
-        }
-        JsonArray old = structure.getAsJsonArray("palette");
-        JsonArray neu = new JsonArray();
-        for (int i = 0; i < old.size(); i++) {
-            JsonObject o = old.get(i)
+    private static VoxelSample[] parseCellTypes(JsonArray arr) throws Exception {
+        VoxelSample[] out = new VoxelSample[arr.size()];
+        for (int i = 0; i < arr.size(); i++) {
+            JsonObject t = arr.get(i)
                 .getAsJsonObject();
-            JsonObject p = new JsonObject();
-            for (Map.Entry<String, JsonElement> e : o.entrySet()) {
-                if ("shellMaterialId".equals(e.getKey())) {
-                    continue;
-                }
-                p.add(e.getKey(), e.getValue());
-            }
-            p.addProperty("renderMode", "BakedQuads");
-            JsonObject geo = new JsonObject();
-            geo.addProperty("encoding", "bakedQuadsJsonV1");
-            geo.add("quads", new JsonArray());
-            p.add("geometry", geo);
-            neu.add(p);
-        }
-        structure.remove("palette");
-        structure.add("blockPalette", neu);
-        if (!structure.has("materialPalette")) {
-            structure.add("materialPalette", new JsonArray());
-        }
-    }
-
-    private static int[] findFirstCellForPaletteIndex(int[][][] cellGrid, int paletteIndex) {
-        for (int zi = 0; zi < cellGrid.length; zi++) {
-            for (int ri = 0; ri < cellGrid[zi].length; ri++) {
-                for (int ci = 0; ci < cellGrid[zi][ri].length; ci++) {
-                    if (cellGrid[zi][ri][ci] == paletteIndex) {
-                        return new int[] {
-                            zi,
-                            ri,
-                            ci
-                        };
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    private static VoxelSample[] parseBlockPaletteAsVoxelSamples(JsonArray palArr) throws Exception {
-        VoxelSample[] out = new VoxelSample[palArr.size()];
-        for (int i = 0; i < palArr.size(); i++) {
-            JsonObject p = palArr.get(i)
-                .getAsJsonObject();
-            String id = p.get("registryId")
+            String id = t.get("registryId")
                 .getAsString();
-            int meta = p.get("meta")
+            int meta = t.get("meta")
                 .getAsInt();
-            String facing = p.has("facing") ? p.get("facing")
-                .getAsString() : null;
-            String shell = p.has("shellMaterialId") ? p.get("shellMaterialId")
+            String facing = t.has("facing") ? t.get("facing")
                 .getAsString() : null;
             NBTTagCompound tileNbt = null;
-            if (p.has("tileNbtB64")) {
-                String b64 = p.get("tileNbtB64")
+            if (t.has("tileNbtB64")) {
+                String b64 = t.get("tileNbtB64")
                     .getAsString();
                 byte[] raw = Base64.getDecoder()
                     .decode(b64);
                 tileNbt = CompressedStreamTools.readCompressed(new ByteArrayInputStream(raw));
             }
-            out[i] = new VoxelSample(id, meta, facing, shell, tileNbt);
+            out[i] = new VoxelSample(id, meta, facing, null, tileNbt);
         }
         return out;
     }
 
-    private static int[] parseScanBounds(JsonObject structure) {
-        JsonObject b = structure.getAsJsonObject("scanBounds");
-        if (!b.has("minX") || !b.has("maxY") || !b.has("minZ")) {
-            throw new IllegalStateException("scanBounds requires minX, maxY, minZ.");
+    private static int[][][][] parseWorldGrid(JsonArray worldGridJson, int[][][] cellGrid) {
+        int sizeZ = cellGrid.length;
+        int sizeRow = cellGrid[0].length;
+        int sizeCol = cellGrid[0][0].length;
+        if (worldGridJson.size() != sizeZ) {
+            throw new IllegalStateException("worldGrid z depth != cellGrid.");
         }
-        return new int[] {
-            b.get("minX")
-                .getAsInt(),
-            b.get("maxY")
-                .getAsInt(),
-            b.get("minZ")
-                .getAsInt()
-        };
+        int[][][][] w = new int[sizeZ][sizeRow][sizeCol][3];
+        for (int zi = 0; zi < sizeZ; zi++) {
+            JsonArray rows = worldGridJson.get(zi)
+                .getAsJsonArray();
+            if (rows.size() != sizeRow) {
+                throw new IllegalStateException("worldGrid row count mismatch.");
+            }
+            for (int ri = 0; ri < sizeRow; ri++) {
+                JsonArray cols = rows.get(ri)
+                    .getAsJsonArray();
+                if (cols.size() != sizeCol) {
+                    throw new IllegalStateException("worldGrid col count mismatch.");
+                }
+                for (int ci = 0; ci < sizeCol; ci++) {
+                    int ct = cellGrid[zi][ri][ci];
+                    JsonElement el = cols.get(ci);
+                    if (ct == 0) {
+                        if (!el.isJsonNull()) {
+                            throw new IllegalStateException("worldGrid must be null for air cells.");
+                        }
+                        w[zi][ri][ci][0] = 0;
+                        w[zi][ri][ci][1] = 0;
+                        w[zi][ri][ci][2] = 0;
+                    } else {
+                        if (!el.isJsonObject()) {
+                            throw new IllegalStateException("worldGrid missing coordinates for non-air cell.");
+                        }
+                        JsonObject o = el.getAsJsonObject();
+                        w[zi][ri][ci][0] = o.get("x")
+                            .getAsInt();
+                        w[zi][ri][ci][1] = o.get("y")
+                            .getAsInt();
+                        w[zi][ri][ci][2] = o.get("z")
+                            .getAsInt();
+                    }
+                }
+            }
+        }
+        return w;
     }
 
-    private static void validateAllChunksLoaded(World world, WorldDelegatingBlockAccess access, int sizeZ, int sizeRow,
-        int sizeCol, int minX, int maxY, int minZ) {
+    private static void validateWorldGridChunks(World world, int[][][] cellGrid, int[][][][] worldCoords) {
         if (world.getChunkProvider() == null) {
             throw new IllegalStateException("Mesh capture: world has no chunk provider.");
         }
-        int[] w = new int[3];
+        int sizeZ = cellGrid.length;
+        int sizeRow = cellGrid[0].length;
+        int sizeCol = cellGrid[0][0].length;
         for (int zi = 0; zi < sizeZ; zi++) {
             for (int ri = 0; ri < sizeRow; ri++) {
                 for (int ci = 0; ci < sizeCol; ci++) {
-                    int x = minX + ci;
-                    int y = maxY - ri;
-                    int z = minZ + zi;
-                    access.structToWorld(x, y, z, w);
+                    if (cellGrid[zi][ri][ci] == 0) {
+                        continue;
+                    }
+                    int wx = worldCoords[zi][ri][ci][0];
+                    int wz = worldCoords[zi][ri][ci][2];
                     if (!world.getChunkProvider()
-                        .chunkExists(w[0] >> 4, w[2] >> 4)) {
+                        .chunkExists(wx >> 4, wz >> 4)) {
                         throw new IllegalStateException(
-                            "Mesh capture: chunk not loaded for world block " + w[0] + "," + w[1] + "," + w[2]
-                                + " (structure " + x + "," + y + "," + z + "). Load the area on the client before capture.");
+                            "Mesh capture: chunk not loaded for world block " + wx + "," + worldCoords[zi][ri][ci][1] + ","
+                                + wz + ". Load the area on the client before capture.");
                     }
                 }
             }
         }
     }
 
-    private static String captureLabel(VoxelSample vs, Block b, WorldDelegatingBlockAccess access, int x, int y, int z) {
+    private static String captureLabel(VoxelSample vs, Block b, World world, int wx, int wy, int wz) {
         if (!"air".equals(vs.registryId)) {
             return vs.key();
         }
         GameRegistry.UniqueIdentifier uid = GameRegistry.findUniqueIdentifierFor(b);
         String id = uid == null ? b.getUnlocalizedName() : uid.toString();
-        return id + '\0' + "meta:" + access.getBlockMetadata(x, y, z);
+        return id + '\0' + "meta:" + world.getBlockMetadata(wx, wy, wz);
     }
 
     private static int[][][] parseCellGrid(JsonArray cellGridJson) {
@@ -423,6 +529,39 @@ public final class MeshCaptureService {
             }
         }
         return grid;
+    }
+
+    private static JsonArray cellGridToJson(int[][][] grid) {
+        JsonArray cellGridJson = new JsonArray();
+        for (int zi = 0; zi < grid.length; zi++) {
+            JsonArray rows = new JsonArray();
+            for (int ri = 0; ri < grid[zi].length; ri++) {
+                JsonArray cols = new JsonArray();
+                for (int ci = 0; ci < grid[zi][ri].length; ci++) {
+                    cols.add(new JsonPrimitive(grid[zi][ri][ci]));
+                }
+                rows.add(cols);
+            }
+            cellGridJson.add(rows);
+        }
+        return cellGridJson;
+    }
+
+    private static int[] findFirstCellForPaletteIndex(int[][][] cellGrid, int paletteIndex) {
+        for (int zi = 0; zi < cellGrid.length; zi++) {
+            for (int ri = 0; ri < cellGrid[zi].length; ri++) {
+                for (int ci = 0; ci < cellGrid[zi][ri].length; ci++) {
+                    if (cellGrid[zi][ri][ci] == paletteIndex) {
+                        return new int[] {
+                            zi,
+                            ri,
+                            ci
+                        };
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     private static void attachMaterials(CapturedBlockInstance inst, TextureMap textureMap, SamplerTable samplers) {
@@ -477,9 +616,6 @@ public final class MeshCaptureService {
         }
     }
 
-    /**
-     * 图集中精灵若为竖直帧条（高为宽的整数倍且≥2 帧），或 {@link TextureAtlasSprite#getFrameCount()} &gt; 1（如 .mcmeta 动画，每帧为正方形图块），导出为 {@code animated}，与 Wiki 侧仅对 animated 注册 tick 一致。
-     */
     private static String inferMaterialKindForSprite(String materialKey, TextureMap textureMap) {
         TextureAtlasSprite spr = MaterialKeyResolver.findSpriteForMaterialKey(materialKey, textureMap);
         if (spr == null) {

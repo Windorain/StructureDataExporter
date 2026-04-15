@@ -114,4 +114,12 @@ public final class VoxelSample {
     public String key() {
         return key(registryId, meta, facing, shellMaterialId, tileNbt);
     }
+
+    /**
+     * 服务端 {@code cellTypes} 合并键：registry / meta / facing / NBT 字节；<strong>不含</strong>
+     * {@link #shellMaterialId}（与扫描 JSON 字段一致，壳层不参与逻辑去重）。
+     */
+    public String cellTypeDedupeKey() {
+        return key(registryId, meta, facing, null, tileNbt);
+    }
 }

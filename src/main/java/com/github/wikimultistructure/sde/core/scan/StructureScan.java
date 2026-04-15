@@ -14,29 +14,17 @@ import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonPrimitive;
 
 /**
- * 选区扫描 → 单文件 <strong>StructureData</strong>（{@code mode=voxelPalette}，Gson {@link JsonObject}）。
+ * 选区扫描 → 中间态 <strong>StructureData</strong>（{@code mode=voxelScan}）：仅逻辑 {@code cellTypes}、{@code cellGrid}、
+ * {@code worldGrid} 与世界 {@code scanBounds}，无几何、无 {@code blockPalette}。须由客户端
+ * {@link com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureService} 烘焙为 {@code mode=voxelPalette}。
  * <p>
- * 服务端写出 {@link #STRUCTURE_DATA_SCHEMA_SCAN}：逻辑 {@code blockPalette} + 空 {@code geometry.quads}、空
- * {@code materialPalette}，须由客户端 {@link com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureService}
- * 烘焙后抬升至 {@link #STRUCTURE_DATA_SCHEMA_FINAL}。
- * <p>
- * 终态几何顶点为<strong>块局部</strong> [0,1]³（相对方块最小角），见
- * {@link com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState} 与
- * {@link com.github.wikimultistructure.sde.client.meshcapture.CaptureCoordinatePolicy}。
+ * 不写根级 {@code schemaVersion}；{@code cellTypes} 不写 {@code shellMaterialId}。
  */
 public final class StructureScan {
-
-    /** 服务端扫描：逻辑 blockPalette + cellGrid + scanBounds，几何未烘焙。 */
-    public static final int STRUCTURE_DATA_SCHEMA_SCAN = 7;
-
-    /** 客户端烘焙完成：blockPalette 含 quads + materialPalette 填齐。 */
-    public static final int STRUCTURE_DATA_SCHEMA_FINAL = 8;
-
-    /** @deprecated 旧 capture 流程；请使用 {@link #STRUCTURE_DATA_SCHEMA_FINAL} */
-    public static final int STRUCTURE_DATA_SCHEMA_WITH_CAPTURE = 7;
 
     private StructureScan() {}
 
@@ -53,7 +41,7 @@ public final class StructureScan {
         List<VoxelSample> paletteList = new ArrayList<>();
         paletteList.add(new VoxelSample("air", 0));
         Map<String, Integer> paletteIndex = new HashMap<>();
-        paletteIndex.put(VoxelSample.key("air", 0), 0);
+        paletteIndex.put(new VoxelSample("air", 0).cellTypeDedupeKey(), 0);
 
         int[][][] cellGrid = new int[sizeZ][sizeRow][sizeCol];
 
@@ -64,7 +52,7 @@ public final class StructureScan {
                 for (int ci = 0; ci < sizeCol; ci++) {
                     int x = ax + ci;
                     VoxelSample s = sampler.sample(world, x, y, z);
-                    String k = s.key();
+                    String k = s.cellTypeDedupeKey();
                     Integer idx = paletteIndex.get(k);
                     if (idx == null) {
                         idx = paletteList.size();
@@ -77,40 +65,33 @@ public final class StructureScan {
         }
 
         JsonObject root = new JsonObject();
-        root.addProperty("schemaVersion", STRUCTURE_DATA_SCHEMA_SCAN);
-        root.addProperty("mode", "voxelPalette");
+        root.addProperty("mode", "voxelScan");
         root.addProperty("id", structureId);
         JsonObject src = new JsonObject();
         src.addProperty("note", "StructureDataExporter scan");
         root.add("source", src);
 
-        JsonArray blockPalette = new JsonArray();
+        JsonArray cellTypes = new JsonArray();
         for (VoxelSample s : paletteList) {
-            JsonObject p = new JsonObject();
-            p.addProperty("registryId", s.registryId);
-            p.addProperty("meta", s.meta);
+            JsonObject t = new JsonObject();
+            t.addProperty("registryId", s.registryId);
+            t.addProperty("meta", s.meta);
             if (s.facing != null && !s.facing.isEmpty()) {
-                p.addProperty("facing", s.facing);
+                t.addProperty("facing", s.facing);
             }
             if (s.tileNbt != null) {
                 try {
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
                     CompressedStreamTools.writeCompressed(s.tileNbt, baos);
-                    p.addProperty("tileNbtB64", Base64.getEncoder()
+                    t.addProperty("tileNbtB64", Base64.getEncoder()
                         .encodeToString(baos.toByteArray()));
                 } catch (Exception ignored) {
                     /* 跳过无法序列化的 TE */
                 }
             }
-            p.addProperty("renderMode", "BakedQuads");
-            JsonObject geometry = new JsonObject();
-            geometry.addProperty("encoding", "bakedQuadsJsonV1");
-            geometry.add("quads", new JsonArray());
-            p.add("geometry", geometry);
-            blockPalette.add(p);
+            cellTypes.add(t);
         }
-        root.add("blockPalette", blockPalette);
-        root.add("materialPalette", new JsonArray());
+        root.add("cellTypes", cellTypes);
 
         JsonObject scanBounds = new JsonObject();
         scanBounds.addProperty("minX", ax);
@@ -119,18 +100,36 @@ public final class StructureScan {
         root.add("scanBounds", scanBounds);
 
         JsonArray cellGridJson = new JsonArray();
+        JsonArray worldGridJson = new JsonArray();
         for (int zi = 0; zi < sizeZ; zi++) {
+            int z = az + zi;
             JsonArray rows = new JsonArray();
+            JsonArray wrows = new JsonArray();
             for (int ri = 0; ri < sizeRow; ri++) {
+                int y = by - ri;
                 JsonArray cols = new JsonArray();
+                JsonArray wcols = new JsonArray();
                 for (int ci = 0; ci < sizeCol; ci++) {
+                    int x = ax + ci;
                     cols.add(new JsonPrimitive(cellGrid[zi][ri][ci]));
+                    if (cellGrid[zi][ri][ci] == 0) {
+                        wcols.add(JsonNull.INSTANCE);
+                    } else {
+                        JsonObject w = new JsonObject();
+                        w.addProperty("x", x);
+                        w.addProperty("y", y);
+                        w.addProperty("z", z);
+                        wcols.add(w);
+                    }
                 }
                 rows.add(cols);
+                wrows.add(wcols);
             }
             cellGridJson.add(rows);
+            worldGridJson.add(wrows);
         }
         root.add("cellGrid", cellGridJson);
+        root.add("worldGrid", worldGridJson);
 
         return root;
     }

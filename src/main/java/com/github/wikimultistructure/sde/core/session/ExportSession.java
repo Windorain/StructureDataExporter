@@ -24,15 +24,12 @@ import com.google.gson.JsonParser;
 
 /**
  * 会话状态、选区、多帧缓冲与落盘（单向：世界 → 内存 JSON 串 → export 写文件）。
- * 默认 {@link IBlockSampler} 为 {@link PolicyBackedBlockSampler}；{@code blockPalette} 中 {@code meta} 对 {@code gregtech:gt.blockmachines} 为 mID，见 {@link GregTechMetaTileRegistry}。
+ * 默认 {@link IBlockSampler} 为 {@link PolicyBackedBlockSampler}；扫描产物 {@code cellTypes[].meta} 对 {@code gregtech:gt.blockmachines} 为 mID，见 {@link GregTechMetaTileRegistry}。
  * <p>
- * 写出文件时：<strong>单帧</strong>为 {@link StructureScan} 的 StructureData（须再经客户端 finalize）；<strong>多帧</strong>为 Wiki
- * {@code World} 文档，其顶层 {@code schemaVersion} 为 {@link #WORLD_DOCUMENT_SCHEMA_VERSION}。
+ * 写出文件时：<strong>单帧</strong>为 {@link StructureScan} 的中间态（{@code voxelScan}，须再经客户端 finalize）；<strong>多帧</strong>为 Wiki
+ * {@code World} 文档（不写顶层 {@code schemaVersion}）。
  */
 public final class ExportSession {
-
-    /** 多帧 JSON 根（World 文档）顶层 {@code schemaVersion}，与内嵌每帧 StructureData 的顶层版本独立。 */
-    public static final int WORLD_DOCUMENT_SCHEMA_VERSION = 1;
 
     private static final ExportSession INSTANCE = new ExportSession();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
@@ -173,7 +170,6 @@ public final class ExportSession {
             writeUtf8(out, json);
         } else {
             JsonObject worldDocument = new JsonObject();
-            worldDocument.addProperty("schemaVersion", WORLD_DOCUMENT_SCHEMA_VERSION);
             worldDocument.addProperty("id", structureId);
             JsonArray frames = new JsonArray();
             JsonParser parser = new JsonParser();
