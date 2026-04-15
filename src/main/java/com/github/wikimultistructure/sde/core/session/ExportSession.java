@@ -24,10 +24,10 @@ import com.google.gson.JsonParser;
 
 /**
  * 会话状态、选区、多帧缓冲与落盘（单向：世界 → 内存 JSON 串 → export 写文件）。
- * 默认 {@link IBlockSampler} 为 {@link PolicyBackedBlockSampler}；palette 中 {@code meta} 对 {@code gregtech:gt.blockmachines} 为 mID，见 {@link GregTechMetaTileRegistry}。
+ * 默认 {@link IBlockSampler} 为 {@link PolicyBackedBlockSampler}；{@code blockPalette} 中 {@code meta} 对 {@code gregtech:gt.blockmachines} 为 mID，见 {@link GregTechMetaTileRegistry}。
  * <p>
- * 写出文件时：<strong>单帧</strong>为 {@link StructureScan} 的 StructureData；<strong>多帧</strong>为 Wiki {@code World} 文档，
- * 其顶层 {@code schemaVersion} 为 {@link #WORLD_DOCUMENT_SCHEMA_VERSION}（与 StructureData / capture / 注册表版本无关）。
+ * 写出文件时：<strong>单帧</strong>为 {@link StructureScan} 的 StructureData（须再经客户端 finalize）；<strong>多帧</strong>为 Wiki
+ * {@code World} 文档，其顶层 {@code schemaVersion} 为 {@link #WORLD_DOCUMENT_SCHEMA_VERSION}。
  */
 public final class ExportSession {
 

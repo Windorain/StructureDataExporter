@@ -19,19 +19,19 @@ import com.google.gson.JsonPrimitive;
 /**
  * 选区扫描 → 单文件 <strong>StructureData</strong>（{@code mode=voxelPalette}，Gson {@link JsonObject}）。
  * <p>
- * <strong>顶层 {@code schemaVersion}</strong>（与 capture 内 {@code schemaVersion}、World 文档、注册表 JSON 均无关）：
- * <ul>
- * <li>{@link #STRUCTURE_DATA_SCHEMA_SCAN}：仅含 palette / cellGrid / scanBounds，尚未有客户端写入的 {@code capture}；</li>
- * <li>客户端网格捕获成功后，{@link com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureService} 将顶层抬至至少
- * {@link #STRUCTURE_DATA_SCHEMA_WITH_CAPTURE}。</li>
- * </ul>
+ * 服务端写出 {@link #STRUCTURE_DATA_SCHEMA_SCAN}：逻辑 {@code blockPalette} + 空 {@code geometry.quads}、空
+ * {@code materialPalette}，须由客户端 {@link com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureService}
+ * 烘焙后抬升至 {@link #STRUCTURE_DATA_SCHEMA_FINAL}。
  */
 public final class StructureScan {
 
-    /** StructureData 顶层：服务端扫描落盘时的版本（无 {@code capture}）。 */
-    public static final int STRUCTURE_DATA_SCHEMA_SCAN = 6;
+    /** 服务端扫描：逻辑 blockPalette + cellGrid + scanBounds，几何未烘焙。 */
+    public static final int STRUCTURE_DATA_SCHEMA_SCAN = 7;
 
-    /** StructureData 顶层：已附加 {@code capture} 后的最小版本（由客户端 enrich 写入）。 */
+    /** 客户端烘焙完成：blockPalette 含 quads + materialPalette 填齐。 */
+    public static final int STRUCTURE_DATA_SCHEMA_FINAL = 8;
+
+    /** @deprecated 旧 capture 流程；请使用 {@link #STRUCTURE_DATA_SCHEMA_FINAL} */
     public static final int STRUCTURE_DATA_SCHEMA_WITH_CAPTURE = 7;
 
     private StructureScan() {}
@@ -80,16 +80,13 @@ public final class StructureScan {
         src.addProperty("note", "StructureDataExporter scan");
         root.add("source", src);
 
-        JsonArray palette = new JsonArray();
+        JsonArray blockPalette = new JsonArray();
         for (VoxelSample s : paletteList) {
             JsonObject p = new JsonObject();
             p.addProperty("registryId", s.registryId);
             p.addProperty("meta", s.meta);
             if (s.facing != null && !s.facing.isEmpty()) {
                 p.addProperty("facing", s.facing);
-            }
-            if (s.shellMaterialId != null && !s.shellMaterialId.isEmpty()) {
-                p.addProperty("shellMaterialId", s.shellMaterialId);
             }
             if (s.tileNbt != null) {
                 try {
@@ -98,12 +95,18 @@ public final class StructureScan {
                     p.addProperty("tileNbtB64", Base64.getEncoder()
                         .encodeToString(baos.toByteArray()));
                 } catch (Exception ignored) {
-                    /*跳过无法序列化的 TE */
+                    /* 跳过无法序列化的 TE */
                 }
             }
-            palette.add(p);
+            p.addProperty("renderMode", "BakedQuads");
+            JsonObject geometry = new JsonObject();
+            geometry.addProperty("encoding", "bakedQuadsJsonV1");
+            geometry.add("quads", new JsonArray());
+            p.add("geometry", geometry);
+            blockPalette.add(p);
         }
-        root.add("palette", palette);
+        root.add("blockPalette", blockPalette);
+        root.add("materialPalette", new JsonArray());
 
         JsonObject scanBounds = new JsonObject();
         scanBounds.addProperty("minX", ax);

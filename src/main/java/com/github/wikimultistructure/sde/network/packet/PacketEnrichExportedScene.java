@@ -5,8 +5,8 @@ import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import io.netty.buffer.ByteBuf;
 
 /**
- * 将服务端刚写出的场景 JSON 全文发给客户端，由客户端 Tessellator 捕获后写回带 {@code capture} 的文件（写入客户端游戏目录
- * {@code structure_exports}），避免专用服上路径不一致。
+ * 将服务端刚写出的场景 JSON 全文发给客户端，由客户端 Tessellator 烘焙 {@code blockPalette.geometry} 与
+ * {@code materialPalette} 后写回终态 StructureData（{@code structure_exports}）。
  */
 public class PacketEnrichExportedScene implements IMessage {
 
