@@ -1,5 +1,7 @@
 package com.github.wikimultistructure.sde.client.meshcapture;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import net.minecraft.client.Minecraft;
@@ -83,5 +85,45 @@ public final class MaterialKeyResolver {
             }
         }
         return null;
+    }
+
+    /**
+     * 由四边形在图集中的 UV 质心解析 {@code materialKey}，将顶点 UV 重映射为 sprite 局部 [0,1]，并写回 {@code q}。
+     *
+     * @return 与 {@link #normalizeMaterialKey} 一致的材质键，供采样器表注册
+     */
+    public static String applySpriteLocalToQuad(TessellatorCaptureState.CapturedQuad q, TextureMap textureMap) {
+        double su = 0, sv = 0;
+        for (TessellatorCaptureState.CapturedVertex v : q.vertices) {
+            su += v.u;
+            sv += v.v;
+        }
+        su /= 4.0;
+        sv /= 4.0;
+        String materialKey = resolveMidUv(su, sv, textureMap);
+        TextureAtlasSprite spr = findSpriteForMaterialKey(materialKey, textureMap);
+        List<TessellatorCaptureState.CapturedVertex> remapped = new ArrayList<>(4);
+        for (TessellatorCaptureState.CapturedVertex v : q.vertices) {
+            double u = v.u;
+            double vv = v.v;
+            if (spr != null) {
+                double minU = spr.getMinU();
+                double maxU = spr.getMaxU();
+                double minV = spr.getMinV();
+                double maxV = spr.getMaxV();
+                double du = maxU - minU;
+                double dvv = maxV - minV;
+                if (du > 1e-9 && dvv > 1e-9) {
+                    u = (v.u - minU) / du;
+                    vv = (v.v - minV) / dvv;
+                }
+            }
+            remapped.add(
+                new TessellatorCaptureState.CapturedVertex(v.x, v.y, v.z, u, vv, v.brightness, v.colorArgb));
+        }
+        q.vertices.clear();
+        q.vertices.addAll(remapped);
+        q.materialKey = materialKey;
+        return materialKey;
     }
 }

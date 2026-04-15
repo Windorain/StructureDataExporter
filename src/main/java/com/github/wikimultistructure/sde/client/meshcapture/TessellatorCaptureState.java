@@ -43,6 +43,19 @@ public final class TessellatorCaptureState {
         }
     }
 
+    /**
+     * 当前块在 {@link #beginBlock} 之后、{@link #endBlock} 之前由录制器累计的四边形数；
+     * 用于判断是否需库存渲染回退（替代对 Tessellator 反射读 vertexCount）。
+     */
+    public static int currentBlockRecordedQuadCount() {
+        synchronized (CAPTURE) {
+            if (!CAPTURE.active) {
+                return 0;
+            }
+            return CAPTURE.quadsForBlock.size();
+        }
+    }
+
     public static void endBlock(CapturedBlockInstance target) {
         synchronized (CAPTURE) {
             Frame f = CAPTURE;

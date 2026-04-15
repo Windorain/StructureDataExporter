@@ -32,6 +32,8 @@ import cpw.mods.fml.relauncher.SideOnly;
 /**
  * 客户端：读 {@link PendingDumpFiles} 触发文件 → 写出全量 {@code block_registry.json} / {@code material_registry.json}（不写 assets 镜像）。
  * <p>
+ * 本类写出的注册表 JSON 自带各自的 {@code schemaVersion}（{@link #BLOCK_REGISTRY_SCHEMA_VERSION} 等），与 StructureData / capture 无关。
+ * <p>
  * {@code block_registry}：一般方块为 world meta 0–15；{@code gregtech:gt.blockmachines} 按 GT5U {@code METATILEENTITIES}
  * 非空槽枚举，键 {@code registryId@n} 中 {@code n} 为 MetaTile ID（mID），见 {@link GregTechMetaTileRegistry}。
  * {@code material_registry}：仅由方块 {@link TextureMap} 的 {@code mapRegisteredSprites} 键经规范化枚举（见 {@link TextureMapAccessor}）。
@@ -57,22 +59,23 @@ public final class ExportBundleClient {
         if (mc == null || mc.theWorld == null) {
             return;
         }
-        File[] candidates = new File[] { new File(mc.mcDataDir, "structure_exports/" + PendingDumpFiles.FILE_NAME),
+        // 优先游戏目录；次选 JVM 当前工作目录（仅开发/特殊启动器场景，与 mcDataDir 可能不一致）
+        File[] pendingDumpCandidates = new File[] { new File(mc.mcDataDir, "structure_exports/" + PendingDumpFiles.FILE_NAME),
             new File(new File("structure_exports"), PendingDumpFiles.FILE_NAME).getAbsoluteFile(), };
-        for (File pending : candidates) {
+        for (File pending : pendingDumpCandidates) {
             if (!pending.isFile() || pending.length() == 0) {
                 continue;
             }
             try {
                 String raw = new String(Files.readAllBytes(pending.toPath()), StandardCharsets.UTF_8);
-                JsonObject root = new JsonParser().parse(raw)
+                JsonObject pendingDump = new JsonParser().parse(raw)
                     .getAsJsonObject();
-                int ver = root.get("schemaVersion")
+                int pendingDumpSchema = pendingDump.get("schemaVersion")
                     .getAsInt();
-                if (ver != PendingDumpFiles.SCHEMA_VERSION) {
+                if (pendingDumpSchema != PendingDumpFiles.SCHEMA_VERSION) {
                     continue;
                 }
-                String exportRootStr = root.get("exportRoot")
+                String exportRootStr = pendingDump.get("exportRoot")
                     .getAsString();
                 File bundleRoot = new File(exportRootStr);
                 writeFullRegistryDump(bundleRoot);

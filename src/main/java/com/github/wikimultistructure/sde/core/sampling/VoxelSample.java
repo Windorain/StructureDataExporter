@@ -25,7 +25,7 @@ public final class VoxelSample {
     /** 一般为世界 meta；GT 机器块为 mID。 */
     public final int meta;
     /**
-     * Wiki palette 的 {@code facing}；{@code null} 表示默认朝北（-z），与旧数据兼容。
+     * Wiki palette 的 {@code facing}（机器正面外法线，{@code FaceName}）；{@code null} 表示默认朝北（-z），与 block_registry 以北为正面一致。
      */
     public final String facing;
     /**

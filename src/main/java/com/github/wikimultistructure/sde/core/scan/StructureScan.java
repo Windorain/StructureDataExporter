@@ -16,8 +16,23 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
-/** 选区扫描为 Wiki v6 StructureData JSON（Gson JsonObject）。 */
+/**
+ * 选区扫描 → 单文件 <strong>StructureData</strong>（{@code mode=voxelPalette}，Gson {@link JsonObject}）。
+ * <p>
+ * <strong>顶层 {@code schemaVersion}</strong>（与 capture 内 {@code schemaVersion}、World 文档、注册表 JSON 均无关）：
+ * <ul>
+ * <li>{@link #STRUCTURE_DATA_SCHEMA_SCAN}：仅含 palette / cellGrid / scanBounds，尚未有客户端写入的 {@code capture}；</li>
+ * <li>客户端网格捕获成功后，{@link com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureService} 将顶层抬至至少
+ * {@link #STRUCTURE_DATA_SCHEMA_WITH_CAPTURE}。</li>
+ * </ul>
+ */
 public final class StructureScan {
+
+    /** StructureData 顶层：服务端扫描落盘时的版本（无 {@code capture}）。 */
+    public static final int STRUCTURE_DATA_SCHEMA_SCAN = 6;
+
+    /** StructureData 顶层：已附加 {@code capture} 后的最小版本（由客户端 enrich 写入）。 */
+    public static final int STRUCTURE_DATA_SCHEMA_WITH_CAPTURE = 7;
 
     private StructureScan() {}
 
@@ -58,7 +73,7 @@ public final class StructureScan {
         }
 
         JsonObject root = new JsonObject();
-        root.addProperty("schemaVersion", 6);
+        root.addProperty("schemaVersion", STRUCTURE_DATA_SCHEMA_SCAN);
         root.addProperty("mode", "voxelPalette");
         root.addProperty("id", structureId);
         JsonObject src = new JsonObject();
@@ -96,7 +111,7 @@ public final class StructureScan {
         scanBounds.addProperty("minZ", az);
         root.add("scanBounds", scanBounds);
 
-        JsonArray zSlices = new JsonArray();
+        JsonArray cellGridJson = new JsonArray();
         for (int zi = 0; zi < sizeZ; zi++) {
             JsonArray rows = new JsonArray();
             for (int ri = 0; ri < sizeRow; ri++) {
@@ -106,9 +121,9 @@ public final class StructureScan {
                 }
                 rows.add(cols);
             }
-            zSlices.add(rows);
+            cellGridJson.add(rows);
         }
-        root.add("cellGrid", zSlices);
+        root.add("cellGrid", cellGridJson);
 
         return root;
     }

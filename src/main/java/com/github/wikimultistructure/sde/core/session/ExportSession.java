@@ -25,8 +25,14 @@ import com.google.gson.JsonParser;
 /**
  * 会话状态、选区、多帧缓冲与落盘（单向：世界 → 内存 JSON 串 → export 写文件）。
  * 默认 {@link IBlockSampler} 为 {@link PolicyBackedBlockSampler}；palette 中 {@code meta} 对 {@code gregtech:gt.blockmachines} 为 mID，见 {@link GregTechMetaTileRegistry}。
+ * <p>
+ * 写出文件时：<strong>单帧</strong>为 {@link StructureScan} 的 StructureData；<strong>多帧</strong>为 Wiki {@code World} 文档，
+ * 其顶层 {@code schemaVersion} 为 {@link #WORLD_DOCUMENT_SCHEMA_VERSION}（与 StructureData / capture / 注册表版本无关）。
  */
 public final class ExportSession {
+
+    /** 多帧 JSON 根（World 文档）顶层 {@code schemaVersion}，与内嵌每帧 StructureData 的顶层版本独立。 */
+    public static final int WORLD_DOCUMENT_SCHEMA_VERSION = 1;
 
     private static final ExportSession INSTANCE = new ExportSession();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
@@ -166,9 +172,9 @@ public final class ExportSession {
             String json = frameJson.get(0);
             writeUtf8(out, json);
         } else {
-            JsonObject world = new JsonObject();
-            world.addProperty("schemaVersion", 1);
-            world.addProperty("id", structureId);
+            JsonObject worldDocument = new JsonObject();
+            worldDocument.addProperty("schemaVersion", WORLD_DOCUMENT_SCHEMA_VERSION);
+            worldDocument.addProperty("id", structureId);
             JsonArray frames = new JsonArray();
             JsonParser parser = new JsonParser();
             for (Map.Entry<Integer, String> e : frameJson.entrySet()) {
@@ -179,13 +185,13 @@ public final class ExportSession {
                 fr.add("structure", nested);
                 frames.add(fr);
             }
-            world.add("frames", frames);
+            worldDocument.add("frames", frames);
             JsonObject playback = new JsonObject();
             playback.addProperty("loop", false);
             playback.addProperty("defaultFrameIndex", 0);
-            world.add("playback", playback);
+            worldDocument.add("playback", playback);
 
-            writeUtf8(out, GSON.toJson(world));
+            writeUtf8(out, GSON.toJson(worldDocument));
         }
 
         return out.getAbsolutePath();
@@ -199,10 +205,10 @@ public final class ExportSession {
         if (!dir.exists() && !dir.mkdirs()) {
             throw new IOException("无法创建目录: " + dir.getAbsolutePath());
         }
-        JsonObject root = new JsonObject();
-        root.addProperty("schemaVersion", PendingDumpFiles.SCHEMA_VERSION);
-        root.addProperty("exportRoot", dir.getAbsolutePath());
-        writeUtf8(new File(dir, PendingDumpFiles.FILE_NAME), GSON.toJson(root));
+        JsonObject pendingDump = new JsonObject();
+        pendingDump.addProperty("schemaVersion", PendingDumpFiles.SCHEMA_VERSION);
+        pendingDump.addProperty("exportRoot", dir.getAbsolutePath());
+        writeUtf8(new File(dir, PendingDumpFiles.FILE_NAME), GSON.toJson(pendingDump));
         return dir.getAbsolutePath();
     }
 

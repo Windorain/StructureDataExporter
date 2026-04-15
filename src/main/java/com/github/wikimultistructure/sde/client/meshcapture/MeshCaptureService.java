@@ -14,7 +14,6 @@ import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.CompressedStreamTools;
@@ -26,6 +25,7 @@ import org.lwjgl.opengl.GL11;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedBlockInstance;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
+import com.github.wikimultistructure.sde.core.scan.StructureScan;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -37,10 +37,19 @@ import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * Client-only: 按 {@code cellGrid} 遍历结构格，方块/meta/TE/光照均来自客户端 {@link World}（经 {@code scanBounds} 映射），
- * 调色板仅作 label等附加信息；用 {@link RenderBlocks} 绘制并由 {@link TessellatorCaptureState} 捕获四边形。
+ * 调色板仅作 label 等附加信息；用 {@link RenderBlocks} 绘制并由 {@link TessellatorCaptureState} 捕获四边形。
+ * <p>
+ * 写入 JSON 时区分两类版本号：<strong>StructureData 顶层</strong> {@code schemaVersion}（见 {@link StructureScan} 常量）与
+ * <strong>{@code capture} 对象内</strong> {@code schemaVersion}（网格捕获载荷，当前为 2，与 Wiki 校验一致），二者勿混用。
  */
 @SideOnly(Side.CLIENT)
 public final class MeshCaptureService {
+
+    /**
+     * {@code structure.capture} 对象内的 {@code schemaVersion}（四边形/samplers 载荷），与 Wiki 校验一致；
+     * 勿与 StructureData 顶层 {@code schemaVersion}（{@link StructureScan}）混淆。
+     */
+    private static final int CAPTURE_PAYLOAD_SCHEMA_VERSION = 2;
 
     private MeshCaptureService() {}
 
@@ -86,7 +95,10 @@ public final class MeshCaptureService {
         }
     }
 
-    /** 就地修改 root：在解包后的 structure 上添加 {@code capture}并抬升 {@code schemaVersion}。 */
+    /**
+     * 就地修改 root：在解包后的 structure 上添加 {@code capture}，并将 <strong>StructureData 顶层</strong>
+     * {@code schemaVersion} 抬升至至少 {@link StructureScan#STRUCTURE_DATA_SCHEMA_WITH_CAPTURE}。
+     */
     public static void enrichRoot(JsonObject root) throws Exception {
         JsonObject structure = unwrapStructure(root);
         if (structure == null || !structure.has("palette") || !structure.has("cellGrid")) {
@@ -158,16 +170,14 @@ public final class MeshCaptureService {
                     tess.startDrawingQuads();
                     MeshCaptureRenderPreparation.beforeBlockRender(rb);
                     rb.renderBlockByRenderType(b, x, y, z);
-                    int rawVertexCount = tessellatorVertexCount(tess);
+                    int quadsAfterWorld = TessellatorCaptureState.currentBlockRecordedQuadCount();
                     tess.draw();
-                    boolean inventoryFallback = false;
                     /*
                      * Angelica：@ThreadSafeISBRH(perThread=true) 的世界路径常不写主线程 Tessellator。
-                     * 对任意非空气方块在 rawVertexCount==0 时尝试 {@link RenderBlocks#renderBlockAsItem}（库存 ISBR），
+                     * 世界路径未产生任何录制四边形时尝试 {@link RenderBlocks#renderBlockAsItem}（库存 ISBR），
                      * 以便机壳等同为自定义 renderType 的方块也能产生顶点。
                      */
-                    if (rawVertexCount == 0) {
-                        inventoryFallback = true;
+                    if (quadsAfterWorld == 0) {
                         GL11.glPushMatrix();
                         try {
                             rb.renderBlockAsItem(b, blockAccess.getBlockMetadata(x, y, z), 1.0F);
@@ -188,22 +198,11 @@ public final class MeshCaptureService {
 
         JsonObject capture = toJsonCapture(instances, samplers);
         captureTarget.add("capture", capture);
-        int prevSv = captureTarget.has("schemaVersion") ? captureTarget.get("schemaVersion")
-            .getAsInt() : 6;
-        captureTarget.addProperty("schemaVersion", Math.max(prevSv, 7));
-    }
-
-    private static int tessellatorVertexCount(Tessellator t) {
-        if (t == null) {
-            return -1;
-        }
-        try {
-            java.lang.reflect.Field f = Tessellator.class.getDeclaredField("vertexCount");
-            f.setAccessible(true);
-            return f.getInt(t);
-        } catch (ReflectiveOperationException e) {
-            return -1;
-        }
+        int prevStructureDataSchema = captureTarget.has("schemaVersion") ? captureTarget.get("schemaVersion")
+            .getAsInt() : StructureScan.STRUCTURE_DATA_SCHEMA_SCAN;
+        captureTarget.addProperty(
+            "schemaVersion",
+            Math.max(prevStructureDataSchema, StructureScan.STRUCTURE_DATA_SCHEMA_WITH_CAPTURE));
     }
 
     private static JsonObject unwrapStructure(JsonObject root) {
@@ -299,9 +298,10 @@ public final class MeshCaptureService {
         return out;
     }
 
-    private static int[][][] parseCellGrid(JsonArray zSlices) {
-        int sizeZ = zSlices.size();
-        JsonArray row0 = zSlices.get(0)
+    /** 解析 StructureData {@code cellGrid}：与 {@link StructureScan} 写出的 JSON 形状一致（Z→行→列，值为 palette 下标）。 */
+    private static int[][][] parseCellGrid(JsonArray cellGridJson) {
+        int sizeZ = cellGridJson.size();
+        JsonArray row0 = cellGridJson.get(0)
             .getAsJsonArray();
         int sizeRow = row0.size();
         int sizeCol = row0.get(0)
@@ -309,7 +309,7 @@ public final class MeshCaptureService {
             .size();
         int[][][] grid = new int[sizeZ][sizeRow][sizeCol];
         for (int zi = 0; zi < sizeZ; zi++) {
-            JsonArray rows = zSlices.get(zi)
+            JsonArray rows = cellGridJson.get(zi)
                 .getAsJsonArray();
             for (int ri = 0; ri < sizeRow; ri++) {
                 JsonArray cols = rows.get(ri)
@@ -325,44 +325,14 @@ public final class MeshCaptureService {
 
     private static void attachMaterials(CapturedBlockInstance inst, TextureMap textureMap, SamplerTable samplers) {
         for (CapturedQuad q : inst.quads) {
-            double su = 0, sv = 0;
-            for (CapturedVertex v : q.vertices) {
-                su += v.u;
-                sv += v.v;
-            }
-            su /= 4.0;
-            sv /= 4.0;
-            String materialKey = MaterialKeyResolver.resolveMidUv(su, sv, textureMap);
-            TextureAtlasSprite spr = MaterialKeyResolver.findSpriteForMaterialKey(materialKey, textureMap);
-            List<CapturedVertex> remapped = new ArrayList<>(4);
-            for (CapturedVertex v : q.vertices) {
-                double u = v.u;
-                double vv = v.v;
-                if (spr != null) {
-                    double minU = spr.getMinU();
-                    double maxU = spr.getMaxU();
-                    double minV = spr.getMinV();
-                    double maxV = spr.getMaxV();
-                    double du = maxU - minU;
-                    double dvv = maxV - minV;
-                    if (du > 1e-9 && dvv > 1e-9) {
-                        u = (v.u - minU) / du;
-                        vv = (v.v - minV) / dvv;
-                    }
-                }
-                remapped.add(new CapturedVertex(v.x, v.y, v.z, u, vv, v.brightness, v.colorArgb));
-            }
-            q.vertices.clear();
-            q.vertices.addAll(remapped);
-            int samplerIndex = samplers.indexForMaterial(materialKey);
-            q.materialKey = materialKey;
-            q.samplerIndex = samplerIndex;
+            String materialKey = MaterialKeyResolver.applySpriteLocalToQuad(q, textureMap);
+            q.samplerIndex = samplers.indexForMaterial(materialKey);
         }
     }
 
     private static JsonObject toJsonCapture(List<CapturedBlockInstance> instances, SamplerTable samplers) {
         JsonObject cap = new JsonObject();
-        cap.addProperty("schemaVersion", 2);
+        cap.addProperty("schemaVersion", CAPTURE_PAYLOAD_SCHEMA_VERSION);
         cap.addProperty("uvSpace", "spriteLocal");
         cap.add("samplers", samplers.toJson());
         JsonArray instArr = new JsonArray();
