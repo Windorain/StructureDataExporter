@@ -15,6 +15,7 @@ import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.CompressedStreamTools;
@@ -233,6 +234,7 @@ public final class MeshCaptureService {
                 attachMaterials(inst, textureMap, samplers);
                 entry.add("geometry", bakedQuadsGeometryFromCapture(inst));
                 entry.addProperty("renderMode", "BakedQuads");
+                entry.addProperty("occludesAdjacentFaces", b.isOpaqueCube());
             }
         }
 
@@ -246,6 +248,7 @@ public final class MeshCaptureService {
         geometry.add("quads", new JsonArray());
         entry.add("geometry", geometry);
         entry.addProperty("renderMode", "BakedQuads");
+        entry.addProperty("occludesAdjacentFaces", false);
     }
 
     private static JsonObject bakedQuadsGeometryFromCapture(CapturedBlockInstance inst) {
@@ -425,7 +428,7 @@ public final class MeshCaptureService {
     private static void attachMaterials(CapturedBlockInstance inst, TextureMap textureMap, SamplerTable samplers) {
         for (CapturedQuad q : inst.quads) {
             String materialKey = MaterialKeyResolver.applySpriteLocalToQuad(q, textureMap);
-            q.samplerIndex = samplers.indexForMaterial(materialKey);
+            q.samplerIndex = samplers.indexForMaterial(materialKey, textureMap);
         }
     }
 
@@ -434,7 +437,7 @@ public final class MeshCaptureService {
         private final List<JsonObject> list = new ArrayList<>();
         private final Map<String, Integer> indexByKey = new LinkedHashMap<>();
 
-        int indexForMaterial(String materialKey) {
+        int indexForMaterial(String materialKey, TextureMap textureMap) {
             Integer idx = indexByKey.get(materialKey);
             if (idx != null) {
                 return idx;
@@ -444,6 +447,7 @@ public final class MeshCaptureService {
             s.addProperty("atlas", "blocks");
             s.addProperty("linear", true);
             s.addProperty("useMipmaps", true);
+            s.addProperty("kind", inferMaterialKindForSprite(materialKey, textureMap));
             int i = list.size();
             list.add(s);
             indexByKey.put(materialKey, i);
@@ -456,7 +460,8 @@ public final class MeshCaptureService {
                 JsonObject m = new JsonObject();
                 m.addProperty("locator", s.get("texture")
                     .getAsString());
-                m.addProperty("kind", "static16");
+                m.addProperty("kind", s.get("kind")
+                    .getAsString());
                 if (s.has("atlas")) {
                     m.add("atlas", s.get("atlas"));
                 }
@@ -470,5 +475,24 @@ public final class MeshCaptureService {
             }
             return a;
         }
+    }
+
+    /**
+     * 图集中精灵若为竖直帧条（高为宽的整数倍且≥2 帧），或 {@link TextureAtlasSprite#getFrameCount()} &gt; 1（如 .mcmeta 动画，每帧为正方形图块），导出为 {@code animated}，与 Wiki 侧仅对 animated 注册 tick 一致。
+     */
+    private static String inferMaterialKindForSprite(String materialKey, TextureMap textureMap) {
+        TextureAtlasSprite spr = MaterialKeyResolver.findSpriteForMaterialKey(materialKey, textureMap);
+        if (spr == null) {
+            return "static16";
+        }
+        if (spr.getFrameCount() > 1) {
+            return "animated";
+        }
+        int iw = spr.getIconWidth();
+        int ih = spr.getIconHeight();
+        if (iw > 0 && ih >= iw * 2 && ih % iw == 0) {
+            return "animated";
+        }
+        return "static16";
     }
 }

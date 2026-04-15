@@ -7,16 +7,20 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * 网格捕获后顶点归一化到「块局部 [0,1]³」契约时采用的策略（显式路径，不用 AABB 猜坐标系）。
+ * 网格捕获后顶点归一化到「块局部 [0,1]³」契约时采用的策略。
  * <p>
- * {@link #SPECIAL_EXTENDED} 为超单格/多格延伸模型占位：当前与 {@link #DEFAULT_WORLD_CORNER} 行为一致，仅打日志便于后续扩展。
+ * {@link #DEFAULT_WORLD_CORNER}：由 {@link TessellatorCaptureState} 在「结构格原点」与「世界角点」之间按单位块 AABB 自动择一。
+ * <p>
+ * {@link #SPECIAL_EXTENDED} 为超单格/多格延伸模型占位：当前与默认分支相同，仅打日志便于后续扩展。
  */
 @SideOnly(Side.CLIENT)
 public final class CaptureCoordinatePolicy {
 
     public enum Kind {
 
-        /** addVertex 入参为世界对齐（块角 + 小数）；应再减 (worldBlockX, worldBlockY, worldBlockZ)。 */
+        /**
+         * 默认：由捕获管线在「减结构格 (blockX,blockY,blockZ)」与「减世界角点 (worldBlock*)」之间自动选择（见 TessellatorCaptureState）。
+         */
         DEFAULT_WORLD_CORNER,
         /** 调用链已把坐标落在块局部；仅减 Tessellator offset，不再减世界角点。 */
         ALREADY_BLOCK_LOCAL,
@@ -58,10 +62,6 @@ public final class CaptureCoordinatePolicy {
 
     private static Kind resolveByBlock(Block block, int meta, int renderType) {
         return null;
-    }
-
-    static boolean applyWorldCornerSubtract(Kind kind) {
-        return kind == Kind.DEFAULT_WORLD_CORNER || kind == Kind.SPECIAL_EXTENDED;
     }
 
     static void logIfSpecialExtended(Kind kind, String registryKey) {

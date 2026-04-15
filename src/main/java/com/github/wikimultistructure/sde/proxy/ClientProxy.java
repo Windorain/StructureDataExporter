@@ -3,6 +3,7 @@ package com.github.wikimultistructure.sde.proxy;
 import net.minecraftforge.common.MinecraftForge;
 
 import com.github.wikimultistructure.sde.client.SelectionClientState;
+import com.github.wikimultistructure.sde.client.automation.SdeClientAutomationTickHandler;
 import com.github.wikimultistructure.sde.client.export.ExportBundleTickHandler;
 import com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureClient;
 import com.github.wikimultistructure.sde.client.render.SelectionBoxRenderer;
@@ -23,6 +24,7 @@ public class ClientProxy extends CommonProxy {
         FMLCommonHandler.instance()
             .bus()
             .register(new ExportBundleTickHandler());
+        FMLCommonHandler.instance().bus().register(new SdeClientAutomationTickHandler());
     }
 
     @Override

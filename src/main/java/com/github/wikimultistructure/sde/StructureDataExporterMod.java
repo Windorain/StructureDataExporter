@@ -1,5 +1,6 @@
 package com.github.wikimultistructure.sde;
 
+import com.github.wikimultistructure.sde.config.SdeAutomationConfig;
 import com.github.wikimultistructure.sde.item.SdeItems;
 import com.github.wikimultistructure.sde.proxy.IProxy;
 import com.github.wikimultistructure.sde.server.command.CommandSde;
@@ -23,6 +24,7 @@ public class StructureDataExporterMod {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
+        SdeAutomationConfig.load(event);
         SdeItems.register();
     }
 

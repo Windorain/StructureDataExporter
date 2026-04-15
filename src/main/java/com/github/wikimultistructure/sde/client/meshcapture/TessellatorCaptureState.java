@@ -15,7 +15,8 @@ import cpw.mods.fml.common.FMLLog;
  * [0,1]³。变换两步（解析式，无 AABB 启发式）：
  * <ol>
  * <li>减 Tessellator {@code setTranslation}：缓冲内 xyz = addVertex 入参 + (xOffset,yOffset,zOffset)（见 MCP Tessellator）。</li>
- * <li>按 {@link CaptureCoordinatePolicy}：多数路径再减本块世界角点 (worldBlockX,Y,Z)；少数路径已为块局部则不减。</li>
+ * <li>按 {@link CaptureCoordinatePolicy}：在<strong>结构格 (blockX,Y,Z)</strong> 与 <strong>世界角点 (worldBlockX,Y,Z)</strong> 中择一减去，
+ * 使结果落在单位块内（原版多为结构格；部分模组 Tessellator 为世界坐标）。{@link CaptureCoordinatePolicy.Kind#ALREADY_BLOCK_LOCAL} 则不再减。</li>
  * </ol>
  * 使用<strong>全局</strong> {@link Frame} 而非 {@link ThreadLocal}，以便 GTNH Angelica 等
  * {@code @ThreadSafeISBRH(perThread = true)} 在<strong>工作线程</strong>写入 Tessellator 时仍能命中录制状态。
@@ -110,10 +111,43 @@ public final class TessellatorCaptureState {
             f.inventoryFallback);
         CaptureCoordinatePolicy.logIfSpecialExtended(kind, f.registryKey);
 
-        boolean subtractWorld = CaptureCoordinatePolicy.applyWorldCornerSubtract(kind);
-        double wx = f.worldBlockX;
-        double wy = f.worldBlockY;
-        double wz = f.worldBlockZ;
+        final double bx = f.blockX;
+        final double by = f.blockY;
+        final double bz = f.blockZ;
+        final double wx = f.worldBlockX;
+        final double wy = f.worldBlockY;
+        final double wz = f.worldBlockZ;
+
+        final double ox;
+        final double oy;
+        final double oz;
+        if (kind == CaptureCoordinatePolicy.Kind.ALREADY_BLOCK_LOCAL) {
+            ox = oy = oz = 0.0;
+        } else {
+            boolean structFits = quadSetFitsUnitBlockAfterOriginSubtract(f.quadsForBlock, bx, by, bz);
+            boolean worldFits = quadSetFitsUnitBlockAfterOriginSubtract(f.quadsForBlock, wx, wy, wz);
+            if (structFits && !worldFits) {
+                ox = bx;
+                oy = by;
+                oz = bz;
+            } else if (worldFits && !structFits) {
+                ox = wx;
+                oy = wy;
+                oz = wz;
+            } else if (structFits) {
+                ox = bx;
+                oy = by;
+                oz = bz;
+            } else if (worldFits) {
+                ox = wx;
+                oy = wy;
+                oz = wz;
+            } else {
+                ox = bx;
+                oy = by;
+                oz = bz;
+            }
+        }
 
         List<CapturedQuad> rebuilt = new ArrayList<>(f.quadsForBlock.size());
         for (CapturedQuad q : f.quadsForBlock) {
@@ -122,9 +156,9 @@ public final class TessellatorCaptureState {
                 double x0 = v.x - v.tessOffsetX;
                 double y0 = v.y - v.tessOffsetY;
                 double z0 = v.z - v.tessOffsetZ;
-                double xf = subtractWorld ? x0 - wx : x0;
-                double yf = subtractWorld ? y0 - wy : y0;
-                double zf = subtractWorld ? z0 - wz : z0;
+                double xf = x0 - ox;
+                double yf = y0 - oy;
+                double zf = z0 - oz;
                 if (ASSERT_BLOCK_LOCAL_BOUNDS) {
                     assertBlockLocalVertex(f.registryKey, f.renderType, kind, xf, yf, zf);
                 }
@@ -137,6 +171,40 @@ public final class TessellatorCaptureState {
         }
         f.quadsForBlock.clear();
         f.quadsForBlock.addAll(rebuilt);
+    }
+
+    /**
+     * 判定：所有顶点在减 Tessellator offset 后，再减 (ox,oy,oz) 是否落在单格 [0,1]³（带容差）。
+     */
+    private static boolean quadSetFitsUnitBlockAfterOriginSubtract(List<CapturedQuad> quads, double ox, double oy, double oz) {
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double minZ = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+        double maxZ = Double.NEGATIVE_INFINITY;
+        for (CapturedQuad q : quads) {
+            for (CapturedVertex v : q.vertices) {
+                double tx = v.x - v.tessOffsetX - ox;
+                double ty = v.y - v.tessOffsetY - oy;
+                double tz = v.z - v.tessOffsetZ - oz;
+                minX = Math.min(minX, tx);
+                minY = Math.min(minY, ty);
+                minZ = Math.min(minZ, tz);
+                maxX = Math.max(maxX, tx);
+                maxY = Math.max(maxY, ty);
+                maxZ = Math.max(maxZ, tz);
+            }
+        }
+        if (minX == Double.POSITIVE_INFINITY) {
+            return false;
+        }
+        final double tol = 0.08;
+        double sx = maxX - minX;
+        double sy = maxY - minY;
+        double sz = maxZ - minZ;
+        return minX >= -tol && minY >= -tol && minZ >= -tol && maxX <= 1.0 + tol && maxY <= 1.0 + tol && maxZ <= 1.0 + tol
+            && sx <= 1.0 + tol && sy <= 1.0 + tol && sz <= 1.0 + tol;
     }
 
     private static void assertBlockLocalVertex(String registryKey, int renderType, CaptureCoordinatePolicy.Kind kind, double x,
