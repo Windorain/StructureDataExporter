@@ -1,0 +1,142 @@
+package com.github.wikimultistructure.sde.client.meshcapture.postrender;
+
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
+
+import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.tileentity.TileEntityMobSpawner;
+import net.minecraft.tileentity.TileEntitySign;
+import net.minecraft.tileentity.TileEntitySkull;
+import net.minecraft.world.World;
+
+import org.lwjgl.opengl.GL11;
+
+import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState;
+
+import cpw.mods.fml.common.registry.GameRegistry;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+
+/**
+ * 补捕获原版/模组 {@link net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer}：在静态
+ * {@link net.minecraft.client.renderer.RenderBlocks} 批次已 {@code draw} 之后执行，顶点仍由
+ * {@link TessellatorCaptureState} 录制。
+ * <p>
+ * JVM：{@code -Dsde.tesrCapture=off}关闭；{@code all}（默认）对凡有 TESR 的 TE 尝试渲染，但排除
+ * {@linkplain #isDeniedTileEntityClass(Class) 拒绝列表}；{@code allowlist} 仅当方块注册名在
+ * {@code -Dsde.tesrCapture.allowlist=modid:name,...} 中时为真。
+ */
+@SideOnly(Side.CLIENT)
+public final class TileEntitySpecialRendererPostRenderStrategy implements MeshCaptureBlockPostRenderStrategy {
+
+    public static final int DEFAULT_PRIORITY = 2000;
+
+    private static final String MODE = System.getProperty("sde.tesrCapture", "all")
+        .trim()
+        .toLowerCase(Locale.ROOT);
+    private static final Set<String> ALLOWLIST = parseCsvAllowlist(System.getProperty("sde.tesrCapture.allowlist", ""));
+
+    @Override
+    public int priority() {
+        return DEFAULT_PRIORITY;
+    }
+
+    @Override
+    public boolean applies(MeshCaptureBlockPostRenderContext ctx) {
+        if ("off".equals(MODE)) {
+            return false;
+        }
+        TileEntity te = ctx.getTileEntity();
+        if (te == null) {
+            return false;
+        }
+        if (isDeniedTileEntityClass(te.getClass())) {
+            return false;
+        }
+        if (!TileEntityRendererDispatcher.instance.hasSpecialRenderer(te)) {
+            return false;
+        }
+        if ("allowlist".equals(MODE)) {
+            return allowlistContainsBlock(ctx);
+        }
+        if ("all".equals(MODE) || MODE.isEmpty()) {
+            return true;
+        }
+        /* 未知模式：保守关闭 */
+        return false;
+    }
+
+    @Override
+    public void renderPostMainBlock(MeshCaptureBlockPostRenderContext ctx) {
+        TileEntity te = ctx.getTileEntity();
+        if (te == null) {
+            return;
+        }
+        World world = ctx.getWorld();
+        int wx = ctx.getWx();
+        int wy = ctx.getWy();
+        int wz = ctx.getWz();
+        float pt = ctx.getPartialTicks();
+
+        double spx = TileEntityRendererDispatcher.staticPlayerX;
+        double spy = TileEntityRendererDispatcher.staticPlayerY;
+        double spz = TileEntityRendererDispatcher.staticPlayerZ;
+        try {
+            TileEntityRendererDispatcher.staticPlayerX = wx;
+            TileEntityRendererDispatcher.staticPlayerY = wy;
+            TileEntityRendererDispatcher.staticPlayerZ = wz;
+
+            TileEntityRendererDispatcher.instance.func_147543_a(world);
+
+            int br = world.getLightBrightnessForSkyBlocks(te.xCoord, te.yCoord, te.zCoord, 0);
+            int sl = br % 65536;
+            int bl = br / 65536;
+            OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, sl / 1.0F, bl / 1.0F);
+            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+
+            TileEntityRendererDispatcher.instance.renderTileEntityAt(
+                te,
+                (double) te.xCoord - TileEntityRendererDispatcher.staticPlayerX,
+                (double) te.yCoord - TileEntityRendererDispatcher.staticPlayerY,
+                (double) te.zCoord - TileEntityRendererDispatcher.staticPlayerZ,
+                pt);
+            TessellatorCaptureState.markTesrPostRenderForActiveCapture();
+        } finally {
+            TileEntityRendererDispatcher.staticPlayerX = spx;
+            TileEntityRendererDispatcher.staticPlayerY = spy;
+            TileEntityRendererDispatcher.staticPlayerZ = spz;
+        }
+    }
+
+    private static boolean allowlistContainsBlock(MeshCaptureBlockPostRenderContext ctx) {
+        if (ALLOWLIST.isEmpty()) {
+            return false;
+        }
+        GameRegistry.UniqueIdentifier uid = GameRegistry.findUniqueIdentifierFor(ctx.getBlock());
+        String key = uid == null ? "" : uid.toString().toLowerCase(Locale.ROOT);
+        return key.length() > 0 && ALLOWLIST.contains(key);
+    }
+
+    private static Set<String> parseCsvAllowlist(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<String> out = new LinkedHashSet<>();
+        for (String part : raw.split(",")) {
+            String t = part.trim().toLowerCase(Locale.ROOT);
+            if (!t.isEmpty()) {
+                out.add(t);
+            }
+        }
+        return out.isEmpty() ? Collections.emptySet() : Collections.unmodifiableSet(out);
+    }
+
+    private static boolean isDeniedTileEntityClass(Class<? extends TileEntity> c) {
+        return TileEntitySign.class.isAssignableFrom(c) || TileEntityMobSpawner.class.isAssignableFrom(c)
+            || TileEntitySkull.class.isAssignableFrom(c);
+    }
+}

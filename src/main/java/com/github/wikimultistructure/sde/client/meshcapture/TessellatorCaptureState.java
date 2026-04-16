@@ -5,6 +5,7 @@ import java.util.List;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.util.ResourceLocation;
 
 import cpw.mods.fml.common.FMLLog;
 
@@ -58,10 +59,31 @@ public final class TessellatorCaptureState {
             f.blockMeta = blockMeta;
             f.renderType = renderType;
             f.registryKey = registryKey != null ? registryKey : "";
-            f.inventoryFallback = false;
+            f.geometrySource = CaptureGeometrySource.PRIMARY;
+            f.lastBoundTextureKey = "";
             f.quadsForBlock.clear();
             f.currentQuadVerts.clear();
             f.active = true;
+        }
+    }
+
+    /**
+     * 由 {@code TextureManager#bindTexture} mixin 在捕获激活时调用，用于 TESR/实体贴图等<strong>非方块图集</strong>路径。
+     */
+    public static void noteTextureBind(ResourceLocation loc) {
+        synchronized (CAPTURE) {
+            if (!CAPTURE.active || loc == null) {
+                return;
+            }
+            String dom = loc.getResourceDomain();
+            if (dom == null || dom.isEmpty()) {
+                dom = "minecraft";
+            }
+            String path = loc.getResourcePath();
+            if (path == null) {
+                path = "";
+            }
+            CAPTURE.lastBoundTextureKey = dom + ":" + MaterialKeyResolver.normalizeMaterialKey(path);
         }
     }
 
@@ -69,7 +91,16 @@ public final class TessellatorCaptureState {
     public static void markInventoryFallbackForActiveCapture() {
         synchronized (CAPTURE) {
             if (CAPTURE.active) {
-                CAPTURE.inventoryFallback = true;
+                CAPTURE.geometrySource = CaptureGeometrySource.INVENTORY_FALLBACK;
+            }
+        }
+    }
+
+    /** 在 {@link com.github.wikimultistructure.sde.client.meshcapture.postrender.TileEntitySpecialRendererPostRenderStrategy} 成功调度 TESR 后调用。 */
+    public static void markTesrPostRenderForActiveCapture() {
+        synchronized (CAPTURE) {
+            if (CAPTURE.active) {
+                CAPTURE.geometrySource = CaptureGeometrySource.TESR_POST_RENDER;
             }
         }
     }
@@ -107,7 +138,7 @@ public final class TessellatorCaptureState {
             f.blockMeta,
             f.renderType,
             f.registryKey,
-            f.inventoryFallback);
+            f.geometrySource);
         CaptureCoordinatePolicy.logIfSpecialExtended(kind, f.registryKey);
 
         List<CapturedQuad> rebuilt = new ArrayList<>(f.quadsForBlock.size());
@@ -133,6 +164,7 @@ public final class TessellatorCaptureState {
             CapturedQuad nq = new CapturedQuad(nv);
             nq.materialKey = q.materialKey;
             nq.samplerIndex = q.samplerIndex;
+            nq.bindTextureHint = q.bindTextureHint;
             rebuilt.add(nq);
         }
         f.quadsForBlock.clear();
@@ -284,7 +316,9 @@ public final class TessellatorCaptureState {
             CapturedVertex cv = new CapturedVertex(x, y, z, u, v, brightness, colorArgb, tessOffsetX, tessOffsetY, tessOffsetZ);
             fr.currentQuadVerts.add(cv);
             if (fr.currentQuadVerts.size() == 4) {
-                fr.quadsForBlock.add(new CapturedQuad(new ArrayList<>(fr.currentQuadVerts)));
+                CapturedQuad cq = new CapturedQuad(new ArrayList<>(fr.currentQuadVerts));
+                cq.bindTextureHint = fr.lastBoundTextureKey != null ? fr.lastBoundTextureKey : "";
+                fr.quadsForBlock.add(cq);
                 fr.currentQuadVerts.clear();
             }
         }
@@ -310,7 +344,9 @@ public final class TessellatorCaptureState {
         int blockMeta;
         int renderType;
         String registryKey = "";
-        boolean inventoryFallback;
+        CaptureGeometrySource geometrySource = CaptureGeometrySource.PRIMARY;
+        /** 最近一次 {@link #noteTextureBind}，闭合 quad 时写入 {@link CapturedQuad#bindTextureHint} */
+        String lastBoundTextureKey = "";
         final List<CapturedQuad> quadsForBlock = new ArrayList<>();
         final List<CapturedVertex> currentQuadVerts = new ArrayList<>();
     }
@@ -350,6 +386,10 @@ public final class TessellatorCaptureState {
         public final List<CapturedVertex> vertices;
         public String materialKey = "unknown";
         public int samplerIndex;
+        /** 四边形闭合时 Tessellator 绑定的纹理键（domain:path 风格，path 已 normalize） */
+        public String bindTextureHint = "";
+        /** {@link MaterialKeyResolver#applySpriteLocalToQuad}：材质来自非图集 bind，采样器不写 blocks 图集 */
+        public boolean materialUsesStandaloneTexture;
 
         public CapturedQuad(List<CapturedVertex> vertices) {
             this.vertices = vertices;

@@ -65,6 +65,19 @@ public final class MaterialKeyResolver {
         return s.replace('\\', '/');
     }
 
+    /** 方块/物品图集 bind；此类 UV 应由 {@link #resolveMidUv} 解析，不可用作独立贴图 fallback。 */
+    public static boolean isAtlasBindMaterialKey(String domainAndPathKey) {
+        if (domainAndPathKey == null || domainAndPathKey.isEmpty()) {
+            return false;
+        }
+        String s = domainAndPathKey;
+        int c = s.indexOf(':');
+        if (c >= 0) {
+            s = s.substring(c + 1);
+        }
+        return s.contains("atlas/blocks") || s.contains("atlas/items");
+    }
+
     /**
      * 按与 {@link #normalizeMaterialKey} 一致的键在图集中查找 sprite，供将图集 UV 换算为 sprite 局部 [0,1]。
      */
@@ -102,6 +115,13 @@ public final class MaterialKeyResolver {
         sv /= 4.0;
         String materialKey = resolveMidUv(su, sv, textureMap);
         TextureAtlasSprite spr = findSpriteForMaterialKey(materialKey, textureMap);
+        q.materialUsesStandaloneTexture = false;
+        if ("unknown".equals(materialKey) && q.bindTextureHint != null && !q.bindTextureHint.isEmpty()
+            && !isAtlasBindMaterialKey(q.bindTextureHint)) {
+            materialKey = q.bindTextureHint;
+            spr = null;
+            q.materialUsesStandaloneTexture = true;
+        }
         List<TessellatorCaptureState.CapturedVertex> remapped = new ArrayList<>(4);
         for (TessellatorCaptureState.CapturedVertex v : q.vertices) {
             double u = v.u;

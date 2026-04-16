@@ -32,10 +32,14 @@ public final class CaptureCoordinatePolicy {
 
     /**
      * @param registryKey {@code VoxelSample.registryId}，如 {@code minecraft:stone}
+     * @param geometrySource 几何来自主路径、库存回退或 TESR post（当前仅库存回退影响日志；TESR 与主路径同属默认归一化）。
      */
-    public static Kind resolve(Block block, int meta, int renderType, String registryKey, boolean inventoryFallback) {
-        if (inventoryFallback) {
+    public static Kind resolve(Block block, int meta, int renderType, String registryKey,
+        CaptureGeometrySource geometrySource) {
+        if (geometrySource == CaptureGeometrySource.INVENTORY_FALLBACK) {
             FMLLog.fine("[SDE] capture used inventory fallback for " + registryKey + " renderType=" + renderType);
+        } else if (geometrySource == CaptureGeometrySource.TESR_POST_RENDER) {
+            FMLLog.fine("[SDE] capture used TESR post-render for " + registryKey + " renderType=" + renderType);
         }
 
         if (registryKey != null) {

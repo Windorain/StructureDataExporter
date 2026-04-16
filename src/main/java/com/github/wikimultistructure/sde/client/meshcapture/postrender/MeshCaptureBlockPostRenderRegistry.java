@@ -12,7 +12,11 @@ import cpw.mods.fml.relauncher.SideOnly;
 /**
  * 注册表：主绘制后的补画仅通过本类 {@link #dispatch} 调度，避免散装回调。
  * <p>
- * 内置已注册 {@link ForgeMultipartDynamicPostRenderStrategy}（priority={@value ForgeMultipartDynamicPostRenderStrategy#DEFAULT_PRIORITY}）。
+ * 内置策略（按 {@link MeshCaptureBlockPostRenderStrategy#priority()} 升序，首个 {@code applies} 命中即执行）：
+ * <ul>
+ * <li>{@link ForgeMultipartDynamicPostRenderStrategy} — priority {@value ForgeMultipartDynamicPostRenderStrategy#DEFAULT_PRIORITY}；</li>
+ * <li>{@link TileEntitySpecialRendererPostRenderStrategy} — priority {@value TileEntitySpecialRendererPostRenderStrategy#DEFAULT_PRIORITY}。</li>
+ * </ul>
  * 自定义策略：实现 {@link MeshCaptureBlockPostRenderStrategy}，{@code priority} 取更小值以优先检测；在
  * {@link MeshCaptureBlockPostRenderStrategy#renderPostMainBlock} 内可委托
  * {@link ForgeMultipartDynamicPostRenderStrategy#renderDynamicPartsIfMultipart(MeshCaptureBlockPostRenderContext)}。
@@ -25,6 +29,7 @@ public final class MeshCaptureBlockPostRenderRegistry {
 
     static {
         register(new ForgeMultipartDynamicPostRenderStrategy());
+        register(new TileEntitySpecialRendererPostRenderStrategy());
     }
 
     private MeshCaptureBlockPostRenderRegistry() {}

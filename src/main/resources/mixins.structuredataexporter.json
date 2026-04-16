@@ -8,7 +8,9 @@
   "mixins": [],
   "client": [
     "MixinTextureMap",
-    "MixinTessellatorCapture"
+    "MixinTessellatorCapture",
+    "MixinModelRendererCapture",
+    "MixinTextureManagerBindCapture"
   ],
   "server": []
 }

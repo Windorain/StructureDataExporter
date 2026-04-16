@@ -40,6 +40,7 @@ import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
@@ -642,7 +643,7 @@ public final class MeshCaptureService {
     private static void attachMaterials(CapturedBlockInstance inst, TextureMap textureMap, SamplerTable samplers) {
         for (CapturedQuad q : inst.quads) {
             String materialKey = MaterialKeyResolver.applySpriteLocalToQuad(q, textureMap);
-            q.samplerIndex = samplers.indexForMaterial(materialKey, textureMap);
+            q.samplerIndex = samplers.indexForMaterial(materialKey, textureMap, q.materialUsesStandaloneTexture);
         }
     }
 
@@ -651,20 +652,25 @@ public final class MeshCaptureService {
         private final List<JsonObject> list = new ArrayList<>();
         private final Map<String, Integer> indexByKey = new LinkedHashMap<>();
 
-        int indexForMaterial(String materialKey, TextureMap textureMap) {
-            Integer idx = indexByKey.get(materialKey);
+        int indexForMaterial(String materialKey, TextureMap textureMap, boolean standaloneFileTexture) {
+            String cacheKey = standaloneFileTexture ? materialKey + "\0__sde_file_tex" : materialKey;
+            Integer idx = indexByKey.get(cacheKey);
             if (idx != null) {
                 return idx;
             }
             JsonObject s = new JsonObject();
             s.addProperty("texture", materialKey);
-            s.addProperty("atlas", "blocks");
+            if (standaloneFileTexture) {
+                s.add("atlas", JsonNull.INSTANCE);
+            } else {
+                s.addProperty("atlas", "blocks");
+            }
             s.addProperty("linear", true);
             s.addProperty("useMipmaps", true);
             s.addProperty("kind", inferMaterialKindForSprite(materialKey, textureMap));
             int i = list.size();
             list.add(s);
-            indexByKey.put(materialKey, i);
+            indexByKey.put(cacheKey, i);
             return i;
         }
 
