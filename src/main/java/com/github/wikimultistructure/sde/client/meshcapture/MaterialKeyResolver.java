@@ -121,8 +121,13 @@ public final class MaterialKeyResolver {
             su += v.u;
             sv += v.v;
         }
-        su /= 4.0;
-        sv /= 4.0;
+        int vn = q.vertices.size();
+        if (vn <= 0) {
+            q.materialKey = "unknown";
+            return "unknown";
+        }
+        su /= vn;
+        sv /= vn;
         String materialKey = resolveMidUv(su, sv, textureMap);
         TextureAtlasSprite spr = findSpriteForMaterialKey(materialKey, textureMap);
         q.materialUsesStandaloneTexture = false;

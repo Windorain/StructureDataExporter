@@ -60,6 +60,10 @@ public abstract class MixinTessellatorCapture {
     @Shadow
     private double zOffset;
 
+    /** {@link Tessellator#startDrawing(int)} 写入；{@code GL_QUADS=7}、{@code GL_TRIANGLES=4}（LWJGL2） */
+    @Shadow
+    private int drawMode;
+
     @Inject(method = "addVertex", at = @At("TAIL"))
     private void sde$afterAddVertex(double x, double y, double z, CallbackInfo ci) {
         if (!TessellatorCaptureState.isRecording() || !this.hasTexture) {
@@ -102,7 +106,18 @@ public abstract class MixinTessellatorCapture {
         double v = Float.intBitsToFloat(this.rawBuffer[base + 4]);
         int color = this.hasColor ? this.rawBuffer[base + 5] : 0xFFFFFFFF;
         int brightness = this.hasBrightness ? this.rawBuffer[base + 7] : 0;
-        TessellatorCaptureState.onVertexRecorded(vx, vy, vz, u, v, brightness, color, this.xOffset, this.yOffset, this.zOffset);
+        TessellatorCaptureState.onVertexRecorded(
+            vx,
+            vy,
+            vz,
+            u,
+            v,
+            brightness,
+            color,
+            this.xOffset,
+            this.yOffset,
+            this.zOffset,
+            this.drawMode);
     }
 
     /** 列主序 MODELVIEW 之上 3x3；仅在未取到入口基线时兜底 */

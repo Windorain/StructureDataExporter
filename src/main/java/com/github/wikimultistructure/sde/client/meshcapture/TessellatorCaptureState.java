@@ -7,13 +7,16 @@ import net.minecraft.block.Block;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.util.ResourceLocation;
 
+import org.lwjgl.opengl.GL11;
+
 import cpw.mods.fml.common.FMLLog;
 
 import com.github.wikimultistructure.sde.client.meshcapture.finish.BlockCaptureFinishContext;
 import com.github.wikimultistructure.sde.client.meshcapture.finish.BlockCaptureFinishRegistry;
 
 /**
- * 录制 {@link Tessellator#addVertex}：{@link #beginBlock} 激活期间将顶点组成四边形（draw mode 7 = GL_QUADS）。
+ * 录制 {@link Tessellator#addVertex}：按当前 {@link Tessellator} draw mode 组批——{@code GL_QUADS} 每 4 顶点一面；
+ * {@code GL_TRIANGLES} 每 3 顶点一面，并展开为 Wiki 兼容的伪四边形 {@code (v0,v1,v2,v2)}。
  * <p>
  * <strong>导出契约（与 Wiki 一致）</strong>：{@link #endBlock} 写入的顶点为<strong>块局部</strong>，相对当前方块最小角
  * [0,1]³。变换两步：
@@ -418,7 +421,7 @@ public final class TessellatorCaptureState {
     }
 
     public static void onVertexRecorded(double x, double y, double z, double u, double v, int brightness, int colorArgb,
-        double tessOffsetX, double tessOffsetY, double tessOffsetZ) {
+        double tessOffsetX, double tessOffsetY, double tessOffsetZ, int tessellatorDrawMode) {
         synchronized (CAPTURE) {
             Frame fr = CAPTURE;
             if (!fr.active) {
@@ -426,8 +429,26 @@ public final class TessellatorCaptureState {
             }
             CapturedVertex cv = new CapturedVertex(x, y, z, u, v, brightness, colorArgb, tessOffsetX, tessOffsetY, tessOffsetZ);
             fr.currentQuadVerts.add(cv);
-            if (fr.currentQuadVerts.size() == 4) {
-                CapturedQuad cq = new CapturedQuad(new ArrayList<>(fr.currentQuadVerts));
+            boolean triangleMode = tessellatorDrawMode == GL11.GL_TRIANGLES;
+            int need = triangleMode ? 3 : 4;
+            if (fr.currentQuadVerts.size() == need) {
+                List<CapturedVertex> forQuad = new ArrayList<>(fr.currentQuadVerts);
+                if (triangleMode) {
+                    CapturedVertex c2 = forQuad.get(2);
+                    forQuad.add(
+                        new CapturedVertex(
+                            c2.x,
+                            c2.y,
+                            c2.z,
+                            c2.u,
+                            c2.v,
+                            c2.brightness,
+                            c2.colorArgb,
+                            c2.tessOffsetX,
+                            c2.tessOffsetY,
+                            c2.tessOffsetZ));
+                }
+                CapturedQuad cq = new CapturedQuad(forQuad);
                 cq.bindTextureHint = fr.lastBoundTextureKey != null ? fr.lastBoundTextureKey : "";
                 cq.fromDynamicExtensionPass = fr.dynamicExtensionVertexRecording;
                 fr.quadsForBlock.add(cq);
