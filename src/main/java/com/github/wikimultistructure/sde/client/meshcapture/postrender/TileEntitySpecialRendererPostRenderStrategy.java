@@ -1,5 +1,6 @@
 package com.github.wikimultistructure.sde.client.meshcapture.postrender;
 
+import java.nio.FloatBuffer;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -13,7 +14,9 @@ import net.minecraft.tileentity.TileEntitySign;
 import net.minecraft.tileentity.TileEntitySkull;
 import net.minecraft.world.World;
 
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.util.vector.Matrix4f;
 
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState;
 
@@ -98,12 +101,31 @@ public final class TileEntitySpecialRendererPostRenderStrategy implements MeshCa
             OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, sl / 1.0F, bl / 1.0F);
             GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
-            TileEntityRendererDispatcher.instance.renderTileEntityAt(
-                te,
-                (double) te.xCoord - TileEntityRendererDispatcher.staticPlayerX,
-                (double) te.yCoord - TileEntityRendererDispatcher.staticPlayerY,
-                (double) te.zCoord - TileEntityRendererDispatcher.staticPlayerZ,
-                pt);
+            FloatBuffer mv0 = BufferUtils.createFloatBuffer(16);
+            GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, mv0);
+            mv0.rewind();
+            Matrix4f mAtEntry = new Matrix4f();
+            mAtEntry.load(mv0);
+            Matrix4f invEntry = new Matrix4f();
+            if (Matrix4f.invert(mAtEntry, invEntry) != null) {
+                FloatBuffer invBuf = BufferUtils.createFloatBuffer(16);
+                invEntry.store(invBuf);
+                invBuf.rewind();
+                float[] snapInv = new float[16];
+                invBuf.get(snapInv);
+                TessellatorCaptureState.armTesrModelViewBaselineInverse(snapInv);
+            }
+            TessellatorCaptureState.beginTesrPostVertexPhase();
+            try {
+                TileEntityRendererDispatcher.instance.renderTileEntityAt(
+                    te,
+                    (double) te.xCoord - TileEntityRendererDispatcher.staticPlayerX,
+                    (double) te.yCoord - TileEntityRendererDispatcher.staticPlayerY,
+                    (double) te.zCoord - TileEntityRendererDispatcher.staticPlayerZ,
+                    pt);
+            } finally {
+                TessellatorCaptureState.endTesrPostVertexPhase();
+            }
             TessellatorCaptureState.markTesrPostRenderForActiveCapture();
         } finally {
             TileEntityRendererDispatcher.staticPlayerX = spx;

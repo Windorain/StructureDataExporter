@@ -2,6 +2,7 @@ package com.github.wikimultistructure.sde.client.meshcapture;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.Tessellator;
@@ -24,6 +25,9 @@ import cpw.mods.fml.common.FMLLog;
 public final class TessellatorCaptureState {
 
     private static final Frame CAPTURE = new Frame();
+
+    /** {@link net.minecraft.client.model.ModelRenderer#render} 当前 scale 参数，供 glCallList 内联路径使用 */
+    private static volatile float activeModelRendererScale = 0.0625F;
 
     private static final double BOUNDS_ASSERT_LO = -0.06;
 
@@ -63,6 +67,8 @@ public final class TessellatorCaptureState {
             f.lastBoundTextureKey = "";
             f.quadsForBlock.clear();
             f.currentQuadVerts.clear();
+            f.tesrPostRecording = false;
+            f.tesrInverseMvAtRenderStartValid = false;
             f.active = true;
         }
     }
@@ -105,6 +111,65 @@ public final class TessellatorCaptureState {
         }
     }
 
+    /**
+     * 仅在本帧 {@link #beginBlock} 激活且正在执行 {@code TileEntityRendererDispatcher#renderTileEntityAt} 时为 true，
+     * 与全局深度计数解耦，避免与其它调色条目或异步路径误关联。
+     */
+    public static void beginTesrPostVertexPhase() {
+        synchronized (CAPTURE) {
+            if (CAPTURE.active) {
+                CAPTURE.tesrPostRecording = true;
+            }
+        }
+    }
+
+    public static void endTesrPostVertexPhase() {
+        synchronized (CAPTURE) {
+            CAPTURE.tesrPostRecording = false;
+            CAPTURE.tesrInverseMvAtRenderStartValid = false;
+        }
+    }
+
+    /** 为 true 时 {@link net.minecraft.client.model.ModelRenderer} 走内联绘制，且 Tessellator 顶点做相对 MODELVIEW 变换 */
+    public static boolean isTesrPostRecording() {
+        synchronized (CAPTURE) {
+            return CAPTURE.active && CAPTURE.tesrPostRecording;
+        }
+    }
+
+    /**
+     * {@code renderTileEntityAt} 入口处的 {@code inv(GL_MODELVIEW)}（列主序 16 项），用于
+     * {@code inv(M0) * M_now * v}：去掉相机/区块公共平移，保留 rotationPoint 等局部变换。
+     */
+    public static void armTesrModelViewBaselineInverse(float[] inverseColumnMajor16) {
+        synchronized (CAPTURE) {
+            if (CAPTURE.active && inverseColumnMajor16 != null && inverseColumnMajor16.length >= 16) {
+                System.arraycopy(inverseColumnMajor16, 0, CAPTURE.tesrInverseMvAtRenderStart, 0, 16);
+                CAPTURE.tesrInverseMvAtRenderStartValid = true;
+            }
+        }
+    }
+
+    public static boolean hasTesrModelViewBaseline() {
+        synchronized (CAPTURE) {
+            return CAPTURE.active && CAPTURE.tesrInverseMvAtRenderStartValid;
+        }
+    }
+
+    public static void copyTesrModelViewBaselineInverse(float[] outColumnMajor16) {
+        synchronized (CAPTURE) {
+            System.arraycopy(CAPTURE.tesrInverseMvAtRenderStart, 0, outColumnMajor16, 0, 16);
+        }
+    }
+
+    public static void setActiveModelRendererScale(float scale) {
+        activeModelRendererScale = scale;
+    }
+
+    public static float getActiveModelRendererScale() {
+        return activeModelRendererScale;
+    }
+
     public static int currentBlockRecordedQuadCount() {
         synchronized (CAPTURE) {
             if (!CAPTURE.active) {
@@ -118,6 +183,7 @@ public final class TessellatorCaptureState {
         synchronized (CAPTURE) {
             Frame f = CAPTURE;
             flushPartialQuad(f);
+            filterChestRetainTesrOnlyIfPresent(f);
             normalizeVerticesToBlockContract(f);
             f.active = false;
             target.x = f.blockX;
@@ -318,6 +384,7 @@ public final class TessellatorCaptureState {
             if (fr.currentQuadVerts.size() == 4) {
                 CapturedQuad cq = new CapturedQuad(new ArrayList<>(fr.currentQuadVerts));
                 cq.bindTextureHint = fr.lastBoundTextureKey != null ? fr.lastBoundTextureKey : "";
+                cq.fromTesrPostCapture = fr.tesrPostRecording;
                 fr.quadsForBlock.add(cq);
                 fr.currentQuadVerts.clear();
             }
@@ -328,6 +395,27 @@ public final class TessellatorCaptureState {
         if (!f.currentQuadVerts.isEmpty()) {
             f.currentQuadVerts.clear();
         }
+    }
+
+    private static void filterChestRetainTesrOnlyIfPresent(Frame f) {
+        if (f.registryKey == null) {
+            return;
+        }
+        if (!f.registryKey.toLowerCase(Locale.ROOT)
+            .contains("chest")) {
+            return;
+        }
+        boolean anyTesr = false;
+        for (CapturedQuad q : f.quadsForBlock) {
+            if (q.fromTesrPostCapture) {
+                anyTesr = true;
+                break;
+            }
+        }
+        if (!anyTesr) {
+            return;
+        }
+        f.quadsForBlock.removeIf(q -> !q.fromTesrPostCapture);
     }
 
     private static final class Frame {
@@ -347,6 +435,10 @@ public final class TessellatorCaptureState {
         CaptureGeometrySource geometrySource = CaptureGeometrySource.PRIMARY;
         /** 最近一次 {@link #noteTextureBind}，闭合 quad 时写入 {@link CapturedQuad#bindTextureHint} */
         String lastBoundTextureKey = "";
+               /** {@link #beginTesrPostVertexPhase} 与当前 {@link #beginBlock} 捕获块对齐 */
+        boolean tesrPostRecording;
+        final float[] tesrInverseMvAtRenderStart = new float[16];
+        boolean tesrInverseMvAtRenderStartValid;
         final List<CapturedQuad> quadsForBlock = new ArrayList<>();
         final List<CapturedVertex> currentQuadVerts = new ArrayList<>();
     }
@@ -390,6 +482,8 @@ public final class TessellatorCaptureState {
         public String bindTextureHint = "";
         /** {@link MaterialKeyResolver#applySpriteLocalToQuad}：材质来自非图集 bind，采样器不写 blocks 图集 */
         public boolean materialUsesStandaloneTexture;
+        /** 四边形闭合时处于 {@link Frame#tesrPostRecording}（TESR post 路径） */
+        public boolean fromTesrPostCapture;
 
         public CapturedQuad(List<CapturedVertex> vertices) {
             this.vertices = vertices;

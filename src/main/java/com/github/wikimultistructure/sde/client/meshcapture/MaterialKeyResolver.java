@@ -106,6 +106,16 @@ public final class MaterialKeyResolver {
      * @return 与 {@link #normalizeMaterialKey} 一致的材质键，供采样器表注册
      */
     public static String applySpriteLocalToQuad(TessellatorCaptureState.CapturedQuad q, TextureMap textureMap) {
+        /*
+         * TESR/实体贴图：顶点 UV 在「当前绑定的非图集纹理」的 [0,1] 空间。若先对 blocks 图集做 resolveMidUv，
+         * 质心常会误落入某 atlas 小格并被 remap，导致导出后黑块/错纹（例：箱子顶面、锁扣）。
+         */
+        String hint = q.bindTextureHint;
+        if (hint != null && !hint.isEmpty() && !isAtlasBindMaterialKey(hint)) {
+            q.materialUsesStandaloneTexture = true;
+            q.materialKey = hint;
+            return hint;
+        }
         double su = 0, sv = 0;
         for (TessellatorCaptureState.CapturedVertex v : q.vertices) {
             su += v.u;
@@ -116,9 +126,9 @@ public final class MaterialKeyResolver {
         String materialKey = resolveMidUv(su, sv, textureMap);
         TextureAtlasSprite spr = findSpriteForMaterialKey(materialKey, textureMap);
         q.materialUsesStandaloneTexture = false;
-        if ("unknown".equals(materialKey) && q.bindTextureHint != null && !q.bindTextureHint.isEmpty()
-            && !isAtlasBindMaterialKey(q.bindTextureHint)) {
-            materialKey = q.bindTextureHint;
+        if ("unknown".equals(materialKey) && hint != null && !hint.isEmpty()
+            && !isAtlasBindMaterialKey(hint)) {
+            materialKey = hint;
             spr = null;
             q.materialUsesStandaloneTexture = true;
         }
