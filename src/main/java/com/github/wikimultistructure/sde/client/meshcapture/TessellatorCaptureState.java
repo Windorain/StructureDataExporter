@@ -15,7 +15,7 @@ import cpw.mods.fml.common.FMLLog;
  * [0,1]³。变换两步：
  * <ol>
  * <li>减 Tessellator {@code setTranslation}：缓冲内 xyz = addVertex 入参 + (xOffset,yOffset,zOffset)（见 MCP Tessellator）。</li>
- * <li>按 {@link CaptureCoordinatePolicy}：{@link CaptureCoordinatePolicy.Kind#ALREADY_BLOCK_LOCAL} 仅到此为止；否则若步骤 1 后顶点落在 {@code beginBlock} 的体素包络 {@code [wx,wx+1]×[wy,wy+1]×[wz,wz+1]}（容差内），则减<strong>整数世界角</strong> {@code (wx,wy,wz)}（与 Wiki 体素格对齐，避免 AE2 线缆等子方块几何因减 AABB 最小角产生 ~0.5 错位）；否则减 AABB 最小角以处理跨格/角点不一致的绘制。</li>
+ * <li>按 {@link CaptureCoordinatePolicy} 与<strong>每个四边形</strong>的 AABB 选择减去的原点：已在 {@code [0,1]³}（容差内）的批次（典型 ISBRH）不减世界角；落在当前块体素 {@code [wx,wx+1]×…} 内的（如 Ender IO 电容库 TESR 面板与 {@code glTranslatef} 混用导致的世界坐标 Tessellator 顶点）减 {@code (wx,wy,wz)}；否则回退为该四边形 AABB 最小角。这样可避免「同一块内混有块局部与世界局部顶点」时全局 AABB 的 min 被拉成 0，导致大坐标顶点无法归一化（例：{@code eio2.json} 中 x≈511）。</li>
  * </ol>
  * 使用<strong>全局</strong> {@link Frame} 而非 {@link ThreadLocal}，以便 GTNH Angelica 等
  * {@code @ThreadSafeISBRH(perThread = true)} 在<strong>工作线程</strong>写入 Tessellator 时仍能命中录制状态。
@@ -110,32 +110,13 @@ public final class TessellatorCaptureState {
             f.inventoryFallback);
         CaptureCoordinatePolicy.logIfSpecialExtended(kind, f.registryKey);
 
-        final double ox;
-        final double oy;
-        final double oz;
-        if (kind == CaptureCoordinatePolicy.Kind.ALREADY_BLOCK_LOCAL) {
-            ox = oy = oz = 0.0;
-        } else {
-            double wx = f.worldBlockX;
-            double wy = f.worldBlockY;
-            double wz = f.worldBlockZ;
-            double[] bb = tessAdjustedAabbBounds(f.quadsForBlock);
-            final double tol = 0.08;
-            boolean inVoxelEnvelope = bb[0] >= wx - tol && bb[1] >= wy - tol && bb[2] >= wz - tol && bb[3] <= wx + 1.0 + tol
-                && bb[4] <= wy + 1.0 + tol && bb[5] <= wz + 1.0 + tol;
-            if (inVoxelEnvelope) {
-                ox = wx;
-                oy = wy;
-                oz = wz;
-            } else {
-                ox = bb[0];
-                oy = bb[1];
-                oz = bb[2];
-            }
-        }
-
         List<CapturedQuad> rebuilt = new ArrayList<>(f.quadsForBlock.size());
         for (CapturedQuad q : f.quadsForBlock) {
+            double[] qbb = tessAdjustedQuadBounds(q);
+            double[] origin = resolveOriginForQuad(qbb, f, kind);
+            double ox = origin[0];
+            double oy = origin[1];
+            double oz = origin[2];
             List<CapturedVertex> nv = new ArrayList<>(4);
             for (CapturedVertex v : q.vertices) {
                 double x0 = v.x - v.tessOffsetX;
@@ -198,6 +179,88 @@ public final class TessellatorCaptureState {
             maxX,
             maxY,
             maxZ
+        };
+    }
+
+    /** 单个四边形去 Tessellator offset 后的 AABB：{@code [minX,minY,minZ,maxX,maxY,maxZ]}。 */
+    private static double[] tessAdjustedQuadBounds(CapturedQuad q) {
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double minZ = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+        double maxZ = Double.NEGATIVE_INFINITY;
+        for (CapturedVertex v : q.vertices) {
+            double x0 = v.x - v.tessOffsetX;
+            double y0 = v.y - v.tessOffsetY;
+            double z0 = v.z - v.tessOffsetZ;
+            minX = Math.min(minX, x0);
+            minY = Math.min(minY, y0);
+            minZ = Math.min(minZ, z0);
+            maxX = Math.max(maxX, x0);
+            maxY = Math.max(maxY, y0);
+            maxZ = Math.max(maxZ, z0);
+        }
+        if (minX == Double.POSITIVE_INFINITY) {
+            return new double[] {
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            };
+        }
+        return new double[] {
+            minX,
+            minY,
+            minZ,
+            maxX,
+            maxY,
+            maxZ
+        };
+    }
+
+    /**
+     * 为单个四边形选择减去的原点 {@code (ox,oy,oz)}，使混批顶点能正确落入块局部契约。
+     */
+    private static double[] resolveOriginForQuad(double[] bb, Frame f, CaptureCoordinatePolicy.Kind kind) {
+        if (kind == CaptureCoordinatePolicy.Kind.ALREADY_BLOCK_LOCAL) {
+            return new double[] {
+                0.0,
+                0.0,
+                0.0
+            };
+        }
+        final double tol = 0.08;
+        double wx = f.worldBlockX;
+        double wy = f.worldBlockY;
+        double wz = f.worldBlockZ;
+
+        boolean inUnitCube = bb[0] >= -tol && bb[1] >= -tol && bb[2] >= -tol && bb[3] <= 1.0 + tol && bb[4] <= 1.0 + tol
+            && bb[5] <= 1.0 + tol;
+
+        boolean inVoxelEnvelope = bb[0] >= wx - tol && bb[1] >= wy - tol && bb[2] >= wz - tol && bb[3] <= wx + 1.0 + tol
+            && bb[4] <= wy + 1.0 + tol && bb[5] <= wz + 1.0 + tol;
+
+        if (inUnitCube) {
+            return new double[] {
+                0.0,
+                0.0,
+                0.0
+            };
+        }
+        if (inVoxelEnvelope) {
+            return new double[] {
+                wx,
+                wy,
+                wz
+            };
+        }
+        return new double[] {
+            bb[0],
+            bb[1],
+            bb[2]
         };
     }
 
