@@ -260,7 +260,7 @@ public final class TessellatorCaptureState {
         public final double u;
         public final double v;
         public final int brightness;
-        /** Packed ARGB from Tessellator */
+        /** 与 MC 1.7.10 Tessellator 小端一致：{@code alpha<<24|blue<<16|green<<8|red}（非 0xAARRGGBB 直观顺序） */
         public final int colorArgb;
         /** 录制该顶点时 Tessellator 的 x/y/zOffset；缓冲内坐标 = addVertex 入参 + offset */
         public final double tessOffsetX;
