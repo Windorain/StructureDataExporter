@@ -1,0 +1,65 @@
+package com.github.wikimultistructure.sde.client.meshcapture.finish;
+
+import java.util.List;
+
+import net.minecraft.block.Block;
+
+import com.github.wikimultistructure.sde.client.meshcapture.CaptureGeometrySource;
+import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
+
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+
+/**
+ * {@link com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState#endBlock} 收尾阶段上下文；
+ * {@link #getQuads()} 与帧内列表为同一引用，可原地修改。
+ */
+@SideOnly(Side.CLIENT)
+public final class BlockCaptureFinishContext {
+
+    private final String registryKey;
+    private final Block captureBlock;
+    private final int blockMeta;
+    private final int renderType;
+    private final CaptureGeometrySource geometrySource;
+    private final List<CapturedQuad> quads;
+
+    public BlockCaptureFinishContext(
+        String registryKey,
+        Block captureBlock,
+        int blockMeta,
+        int renderType,
+        CaptureGeometrySource geometrySource,
+        List<CapturedQuad> quads) {
+        this.registryKey = registryKey != null ? registryKey : "";
+        this.captureBlock = captureBlock;
+        this.blockMeta = blockMeta;
+        this.renderType = renderType;
+        this.geometrySource = geometrySource != null ? geometrySource : CaptureGeometrySource.PRIMARY;
+        this.quads = quads;
+    }
+
+    public String getRegistryKey() {
+        return registryKey;
+    }
+
+    public Block getCaptureBlock() {
+        return captureBlock;
+    }
+
+    public int getBlockMeta() {
+        return blockMeta;
+    }
+
+    public int getRenderType() {
+        return renderType;
+    }
+
+    public CaptureGeometrySource getGeometrySource() {
+        return geometrySource;
+    }
+
+    public List<CapturedQuad> getQuads() {
+        return quads;
+    }
+}

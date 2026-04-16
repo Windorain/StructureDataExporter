@@ -6,7 +6,6 @@ import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
 
-import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityMobSpawner;
@@ -19,6 +18,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.util.vector.Matrix4f;
 
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState;
+import com.github.wikimultistructure.sde.client.meshcapture.vanilla.VanillaTileEntityRenderEnvironment;
 
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
@@ -57,6 +57,11 @@ public final class TileEntitySpecialRendererPostRenderStrategy implements MeshCa
         if (te == null) {
             return false;
         }
+        /* 与 {@link ForgeMultipartDynamicPostRenderStrategy} 链式并存：multipart 由 FMP 策略独占 */
+        if ("codechicken.multipart.TileMultipart".equals(te.getClass()
+            .getName())) {
+            return false;
+        }
         if (isDeniedTileEntityClass(te.getClass())) {
             return false;
         }
@@ -93,13 +98,9 @@ public final class TileEntitySpecialRendererPostRenderStrategy implements MeshCa
             TileEntityRendererDispatcher.staticPlayerY = wy;
             TileEntityRendererDispatcher.staticPlayerZ = wz;
 
-            TileEntityRendererDispatcher.instance.func_147543_a(world);
-
-            int br = world.getLightBrightnessForSkyBlocks(te.xCoord, te.yCoord, te.zCoord, 0);
-            int sl = br % 65536;
-            int bl = br / 65536;
-            OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, sl / 1.0F, bl / 1.0F);
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            VanillaTileEntityRenderEnvironment.bindDispatcherWorld(world);
+            VanillaTileEntityRenderEnvironment.cacheActiveRenderInfo(pt);
+            VanillaTileEntityRenderEnvironment.applyBlockLightmap(world, te);
 
             FloatBuffer mv0 = BufferUtils.createFloatBuffer(16);
             GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, mv0);
@@ -113,9 +114,9 @@ public final class TileEntitySpecialRendererPostRenderStrategy implements MeshCa
                 invBuf.rewind();
                 float[] snapInv = new float[16];
                 invBuf.get(snapInv);
-                TessellatorCaptureState.armTesrModelViewBaselineInverse(snapInv);
+                TessellatorCaptureState.armDynamicPassModelViewBaselineInverse(snapInv);
             }
-            TessellatorCaptureState.beginTesrPostVertexPhase();
+            TessellatorCaptureState.beginDynamicExtensionVertexPhase();
             try {
                 TileEntityRendererDispatcher.instance.renderTileEntityAt(
                     te,
@@ -124,9 +125,9 @@ public final class TileEntitySpecialRendererPostRenderStrategy implements MeshCa
                     (double) te.zCoord - TileEntityRendererDispatcher.staticPlayerZ,
                     pt);
             } finally {
-                TessellatorCaptureState.endTesrPostVertexPhase();
+                TessellatorCaptureState.endDynamicExtensionVertexPhase();
             }
-            TessellatorCaptureState.markTesrPostRenderForActiveCapture();
+            TessellatorCaptureState.markDynamicExtensionRenderForActiveCapture();
         } finally {
             TileEntityRendererDispatcher.staticPlayerX = spx;
             TileEntityRendererDispatcher.staticPlayerY = spy;

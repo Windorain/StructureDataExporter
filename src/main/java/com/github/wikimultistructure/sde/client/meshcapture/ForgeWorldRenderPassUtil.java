@@ -14,7 +14,7 @@ import cpw.mods.fml.relauncher.SideOnly;
  * {@code setRenderPass} 混淆），可在同一次 Tessellator 批次内先后补画 pass 0 与 1。
  */
 @SideOnly(Side.CLIENT)
-final class ForgeWorldRenderPassUtil {
+public final class ForgeWorldRenderPassUtil {
 
     private enum ResolveState {
         UNRESOLVED,
@@ -37,7 +37,7 @@ final class ForgeWorldRenderPassUtil {
 
     private ForgeWorldRenderPassUtil() {}
 
-    static boolean canSetPass() {
+    public static boolean canSetPass() {
         resolve();
         return state == ResolveState.PRESENT;
     }
@@ -64,7 +64,7 @@ final class ForgeWorldRenderPassUtil {
         }
     }
 
-    static int getPass() {
+    public static int getPass() {
         resolve();
         if (passField == null) {
             return 0;
@@ -76,7 +76,7 @@ final class ForgeWorldRenderPassUtil {
         }
     }
 
-    static void setPass(int pass) {
+    public static void setPass(int pass) {
         resolve();
         if (passField == null) {
             return;

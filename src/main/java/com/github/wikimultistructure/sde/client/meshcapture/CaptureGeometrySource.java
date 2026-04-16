@@ -13,6 +13,8 @@ public enum CaptureGeometrySource {
     PRIMARY,
     /** 主路径与 post 均无 quad 时的 {@link net.minecraft.client.renderer.RenderBlocks#renderBlockAsItem} 回退。 */
     INVENTORY_FALLBACK,
-    /** {@link com.github.wikimultistructure.sde.client.meshcapture.postrender.TileEntitySpecialRendererPostRenderStrategy} 调度的 TESR。 */
-    TESR_POST_RENDER
+    /**
+     * 动态扩展：{@code TileEntitySpecialRenderer}、FMP {@code renderDynamic} 等 TESR 族（主批次 {@code draw} 之后）。
+     */
+    DYNAMIC_EXTENSION
 }

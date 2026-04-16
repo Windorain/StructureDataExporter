@@ -10,9 +10,9 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * 注册表：主绘制后的补画仅通过本类 {@link #dispatch} 调度，避免散装回调。
+ * 注册表：主批次 {@code draw} 之后的动态扩展补画通过本类 {@link #dispatch} 调度。
  * <p>
- * 内置策略（按 {@link MeshCaptureBlockPostRenderStrategy#priority()} 升序，首个 {@code applies} 命中即执行）：
+ * 内置策略（按 {@link MeshCaptureBlockPostRenderStrategy#priority()} 升序，<strong>所有</strong> {@code applies} 为 true 的均会执行）：
  * <ul>
  * <li>{@link ForgeMultipartDynamicPostRenderStrategy} — priority {@value ForgeMultipartDynamicPostRenderStrategy#DEFAULT_PRIORITY}；</li>
  * <li>{@link TileEntitySpecialRendererPostRenderStrategy} — priority {@value TileEntitySpecialRendererPostRenderStrategy#DEFAULT_PRIORITY}。</li>
@@ -42,7 +42,7 @@ public final class MeshCaptureBlockPostRenderRegistry {
     }
 
     /**
-     * 按 priority 升序扫描，首个 {@code applies} 为 true 的策略执行 {@code renderPostMainBlock} 后返回。
+     * 按 priority 升序，对<strong>所有</strong> {@code applies} 为 true 的策略依次执行 {@link MeshCaptureBlockPostRenderStrategy#renderPostMainBlock}。
      */
     public static void dispatch(MeshCaptureBlockPostRenderContext ctx) {
         if (ctx == null) {
@@ -54,7 +54,6 @@ public final class MeshCaptureBlockPostRenderRegistry {
             try {
                 if (s.applies(ctx)) {
                     s.renderPostMainBlock(ctx);
-                    return;
                 }
             } catch (Throwable t) {
                 FMLLog.warning("[SDE] MeshCaptureBlockPostRenderRegistry: strategy %s failed: %s", s.getClass()

@@ -36,7 +36,8 @@ import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureSt
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderContext;
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderRegistry;
-import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
+import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureContext;
+import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureRegistry;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -216,10 +217,8 @@ public final class MeshCaptureService {
                 vs.registryId);
             Tessellator tess = Tessellator.instance;
             tess.startDrawingQuads();
-            MeshCaptureRenderPreparation.beforeBlockRender(rb);
-            if (!renderDualForgeWorldPassIfNeeded(rb, b, wx, wy, wz)) {
-                rb.renderBlockByRenderType(b, wx, wy, wz);
-            }
+            BlockPrimaryCaptureRegistry.dispatch(
+                new BlockPrimaryCaptureContext(world, wx, wy, wz, b, blockMeta, rb, partialTicksForMeshCapture()));
             /*
              * 结束静态批次再 dispatch：FMP/PR 的 renderDynamic 内会 CCRenderState#startDrawingInstance →
              * Tessellator#startDrawing。若外层 startDrawingQuads 尚未 draw，将 IllegalStateException: Already tesselating
@@ -326,52 +325,6 @@ public final class MeshCaptureService {
         structure.addProperty("mode", "voxelPalette");
         structure.remove("cellTypes");
         structure.remove("worldGrid");
-    }
-
-    /**
-     * 需在 Forge {@code worldRenderPass} 0与 1 下各绘制一次的方块（离屏单次 pass 0 会缺层）：
-     * <ul>
-     * <li>GT {@code GTRenderedTexture} overlay 仅在 pass 1；</li>
-     * <li>AE2 {@code BlockCableBus} 等在开启 AlphaPass 时 {@link Block#getRenderBlockPass()} 为 1，
-     * 且 {@code canRenderInPass} 内会同步 {@code BusRenderHelper#setPass}，必须在切换 Forge pass 前调用。</li>
-     * </ul>
-     *
-     * @return {@code true} 已处理（含无法改 pass 时的单次兜底渲染）；{@code false} 走调用方单次 {@code renderBlockByRenderType}。
-     */
-    private static boolean renderDualForgeWorldPassIfNeeded(RenderBlocks rb, Block b, int wx, int wy, int wz) {
-        GameRegistry.UniqueIdentifier uid = GameRegistry.findUniqueIdentifierFor(b);
-        String reg = uid == null ? "" : uid.toString();
-        boolean gtMachines = GregTechMetaTileRegistry.isGregTechBlockMachines(b, reg);
-        boolean multiRenderPassBlock;
-        try {
-            multiRenderPassBlock = b.getRenderBlockPass() > 0;
-        } catch (Throwable ignored) {
-            multiRenderPassBlock = false;
-        }
-        if (!gtMachines && !multiRenderPassBlock) {
-            return false;
-        }
-        if (!ForgeWorldRenderPassUtil.canSetPass()) {
-            rb.renderBlockByRenderType(b, wx, wy, wz);
-            return true;
-        }
-        int saved = ForgeWorldRenderPassUtil.getPass();
-        try {
-            for (int pass = 0; pass <= 1; pass++) {
-                if (multiRenderPassBlock) {
-                    try {
-                        b.canRenderInPass(pass);
-                    } catch (Throwable ignored) {
-                        /* 与区块渲染一致：AE2 CableBus 等在此同步内部 pass */
-                    }
-                }
-                ForgeWorldRenderPassUtil.setPass(pass);
-                rb.renderBlockByRenderType(b, wx, wy, wz);
-            }
-        } finally {
-            ForgeWorldRenderPassUtil.setPass(saved);
-        }
-        return true;
     }
 
     private static JsonObject emptyGeometryJson() {

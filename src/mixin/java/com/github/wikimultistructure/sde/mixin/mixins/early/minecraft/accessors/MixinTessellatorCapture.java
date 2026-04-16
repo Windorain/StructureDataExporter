@@ -72,14 +72,14 @@ public abstract class MixinTessellatorCapture {
         double vx = Float.intBitsToFloat(this.rawBuffer[base]);
         double vy = Float.intBitsToFloat(this.rawBuffer[base + 1]);
         double vz = Float.intBitsToFloat(this.rawBuffer[base + 2]);
-        if (TessellatorCaptureState.isTesrPostRecording()) {
+        if (TessellatorCaptureState.isDynamicExtensionVertexRecording()) {
             double preX = vx;
             double preY = vy;
             double preZ = vz;
             SDE_MODELVIEW_MAT.clear();
             GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, SDE_MODELVIEW_MAT);
-            if (TessellatorCaptureState.hasTesrModelViewBaseline()) {
-                TessellatorCaptureState.copyTesrModelViewBaselineInverse(SDE_INV_ARR);
+            if (TessellatorCaptureState.hasDynamicPassModelViewBaseline()) {
+                TessellatorCaptureState.copyDynamicPassModelViewBaselineInverse(SDE_INV_ARR);
                 SDE_TMP16.clear();
                 SDE_TMP16.put(SDE_INV_ARR);
                 SDE_TMP16.flip();

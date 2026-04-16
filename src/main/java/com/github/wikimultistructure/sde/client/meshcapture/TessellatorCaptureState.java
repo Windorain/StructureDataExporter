@@ -2,13 +2,15 @@ package com.github.wikimultistructure.sde.client.meshcapture;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.util.ResourceLocation;
 
 import cpw.mods.fml.common.FMLLog;
+
+import com.github.wikimultistructure.sde.client.meshcapture.finish.BlockCaptureFinishContext;
+import com.github.wikimultistructure.sde.client.meshcapture.finish.BlockCaptureFinishRegistry;
 
 /**
  * 录制 {@link Tessellator#addVertex}：{@link #beginBlock} 激活期间将顶点组成四边形（draw mode 7 = GL_QUADS）。
@@ -67,14 +69,14 @@ public final class TessellatorCaptureState {
             f.lastBoundTextureKey = "";
             f.quadsForBlock.clear();
             f.currentQuadVerts.clear();
-            f.tesrPostRecording = false;
-            f.tesrInverseMvAtRenderStartValid = false;
+            f.dynamicExtensionVertexRecording = false;
+            f.dynamicExtensionInverseMvAtRenderStartValid = false;
             f.active = true;
         }
     }
 
     /**
-     * 由 {@code TextureManager#bindTexture} mixin 在捕获激活时调用，用于 TESR/实体贴图等<strong>非方块图集</strong>路径。
+     * 由 {@code TextureManager#bindTexture} mixin 在捕获激活时调用，用于动态扩展/实体贴图等<strong>非方块图集</strong>路径。
      */
     public static void noteTextureBind(ResourceLocation loc) {
         synchronized (CAPTURE) {
@@ -102,64 +104,104 @@ public final class TessellatorCaptureState {
         }
     }
 
-    /** 在 {@link com.github.wikimultistructure.sde.client.meshcapture.postrender.TileEntitySpecialRendererPostRenderStrategy} 成功调度 TESR 后调用。 */
-    public static void markTesrPostRenderForActiveCapture() {
+    /** 动态扩展 pass（TESR 族）调度完成后，将帧几何来源标为 {@link CaptureGeometrySource#DYNAMIC_EXTENSION}。 */
+    public static void markDynamicExtensionRenderForActiveCapture() {
         synchronized (CAPTURE) {
             if (CAPTURE.active) {
-                CAPTURE.geometrySource = CaptureGeometrySource.TESR_POST_RENDER;
+                CAPTURE.geometrySource = CaptureGeometrySource.DYNAMIC_EXTENSION;
             }
         }
     }
 
     /**
-     * 仅在本帧 {@link #beginBlock} 激活且正在执行 {@code TileEntityRendererDispatcher#renderTileEntityAt} 时为 true，
-     * 与全局深度计数解耦，避免与其它调色条目或异步路径误关联。
+     * 仅在本帧 {@link #beginBlock} 激活且正在执行动态扩展顶点录制（如 {@code renderTileEntityAt}）时为 true。
      */
-    public static void beginTesrPostVertexPhase() {
+    public static void beginDynamicExtensionVertexPhase() {
         synchronized (CAPTURE) {
             if (CAPTURE.active) {
-                CAPTURE.tesrPostRecording = true;
+                CAPTURE.dynamicExtensionVertexRecording = true;
             }
         }
     }
 
-    public static void endTesrPostVertexPhase() {
+    public static void endDynamicExtensionVertexPhase() {
         synchronized (CAPTURE) {
-            CAPTURE.tesrPostRecording = false;
-            CAPTURE.tesrInverseMvAtRenderStartValid = false;
+            CAPTURE.dynamicExtensionVertexRecording = false;
+            CAPTURE.dynamicExtensionInverseMvAtRenderStartValid = false;
         }
     }
 
-    /** 为 true 时 {@link net.minecraft.client.model.ModelRenderer} 走内联绘制，且 Tessellator 顶点做相对 MODELVIEW 变换 */
-    public static boolean isTesrPostRecording() {
+    /** 为 true 时 {@link net.minecraft.client.model.ModelRenderer} 走内联绘制，且 Tessellator 顶点做相对 MODELVIEW 变换。 */
+    public static boolean isDynamicExtensionVertexRecording() {
         synchronized (CAPTURE) {
-            return CAPTURE.active && CAPTURE.tesrPostRecording;
+            return CAPTURE.active && CAPTURE.dynamicExtensionVertexRecording;
         }
     }
 
     /**
-     * {@code renderTileEntityAt} 入口处的 {@code inv(GL_MODELVIEW)}（列主序 16 项），用于
-     * {@code inv(M0) * M_now * v}：去掉相机/区块公共平移，保留 rotationPoint 等局部变换。
+     * 动态扩展入口处的 {@code inv(GL_MODELVIEW)}（列主序 16 项），用于 {@code inv(M0) * M_now * v}。
      */
-    public static void armTesrModelViewBaselineInverse(float[] inverseColumnMajor16) {
+    public static void armDynamicPassModelViewBaselineInverse(float[] inverseColumnMajor16) {
         synchronized (CAPTURE) {
             if (CAPTURE.active && inverseColumnMajor16 != null && inverseColumnMajor16.length >= 16) {
-                System.arraycopy(inverseColumnMajor16, 0, CAPTURE.tesrInverseMvAtRenderStart, 0, 16);
-                CAPTURE.tesrInverseMvAtRenderStartValid = true;
+                System.arraycopy(inverseColumnMajor16, 0, CAPTURE.dynamicExtensionInverseMvAtRenderStart, 0, 16);
+                CAPTURE.dynamicExtensionInverseMvAtRenderStartValid = true;
             }
         }
     }
 
-    public static boolean hasTesrModelViewBaseline() {
+    public static boolean hasDynamicPassModelViewBaseline() {
         synchronized (CAPTURE) {
-            return CAPTURE.active && CAPTURE.tesrInverseMvAtRenderStartValid;
+            return CAPTURE.active && CAPTURE.dynamicExtensionInverseMvAtRenderStartValid;
         }
     }
 
-    public static void copyTesrModelViewBaselineInverse(float[] outColumnMajor16) {
+    public static void copyDynamicPassModelViewBaselineInverse(float[] outColumnMajor16) {
         synchronized (CAPTURE) {
-            System.arraycopy(CAPTURE.tesrInverseMvAtRenderStart, 0, outColumnMajor16, 0, 16);
+            System.arraycopy(CAPTURE.dynamicExtensionInverseMvAtRenderStart, 0, outColumnMajor16, 0, 16);
         }
+    }
+
+    /** @deprecated 使用 {@link #markDynamicExtensionRenderForActiveCapture()} */
+    @Deprecated
+    public static void markTesrPostRenderForActiveCapture() {
+        markDynamicExtensionRenderForActiveCapture();
+    }
+
+    /** @deprecated 使用 {@link #beginDynamicExtensionVertexPhase()} */
+    @Deprecated
+    public static void beginTesrPostVertexPhase() {
+        beginDynamicExtensionVertexPhase();
+    }
+
+    /** @deprecated 使用 {@link #endDynamicExtensionVertexPhase()} */
+    @Deprecated
+    public static void endTesrPostVertexPhase() {
+        endDynamicExtensionVertexPhase();
+    }
+
+    /** @deprecated 使用 {@link #isDynamicExtensionVertexRecording()} */
+    @Deprecated
+    public static boolean isTesrPostRecording() {
+        return isDynamicExtensionVertexRecording();
+    }
+
+    /** @deprecated 使用 {@link #armDynamicPassModelViewBaselineInverse(float[])} */
+    @Deprecated
+    public static void armTesrModelViewBaselineInverse(float[] inverseColumnMajor16) {
+        armDynamicPassModelViewBaselineInverse(inverseColumnMajor16);
+    }
+
+    /** @deprecated 使用 {@link #hasDynamicPassModelViewBaseline()} */
+    @Deprecated
+    public static boolean hasTesrModelViewBaseline() {
+        return hasDynamicPassModelViewBaseline();
+    }
+
+    /** @deprecated 使用 {@link #copyDynamicPassModelViewBaselineInverse(float[])} */
+    @Deprecated
+    public static void copyTesrModelViewBaselineInverse(float[] outColumnMajor16) {
+        copyDynamicPassModelViewBaselineInverse(outColumnMajor16);
     }
 
     public static void setActiveModelRendererScale(float scale) {
@@ -183,7 +225,8 @@ public final class TessellatorCaptureState {
         synchronized (CAPTURE) {
             Frame f = CAPTURE;
             flushPartialQuad(f);
-            filterChestRetainTesrOnlyIfPresent(f);
+            BlockCaptureFinishRegistry.runAll(
+                new BlockCaptureFinishContext(f.registryKey, f.captureBlock, f.blockMeta, f.renderType, f.geometrySource, f.quadsForBlock));
             normalizeVerticesToBlockContract(f);
             f.active = false;
             target.x = f.blockX;
@@ -231,6 +274,8 @@ public final class TessellatorCaptureState {
             nq.materialKey = q.materialKey;
             nq.samplerIndex = q.samplerIndex;
             nq.bindTextureHint = q.bindTextureHint;
+            nq.materialUsesStandaloneTexture = q.materialUsesStandaloneTexture;
+            nq.fromDynamicExtensionPass = q.fromDynamicExtensionPass;
             rebuilt.add(nq);
         }
         f.quadsForBlock.clear();
@@ -384,7 +429,7 @@ public final class TessellatorCaptureState {
             if (fr.currentQuadVerts.size() == 4) {
                 CapturedQuad cq = new CapturedQuad(new ArrayList<>(fr.currentQuadVerts));
                 cq.bindTextureHint = fr.lastBoundTextureKey != null ? fr.lastBoundTextureKey : "";
-                cq.fromTesrPostCapture = fr.tesrPostRecording;
+                cq.fromDynamicExtensionPass = fr.dynamicExtensionVertexRecording;
                 fr.quadsForBlock.add(cq);
                 fr.currentQuadVerts.clear();
             }
@@ -395,27 +440,6 @@ public final class TessellatorCaptureState {
         if (!f.currentQuadVerts.isEmpty()) {
             f.currentQuadVerts.clear();
         }
-    }
-
-    private static void filterChestRetainTesrOnlyIfPresent(Frame f) {
-        if (f.registryKey == null) {
-            return;
-        }
-        if (!f.registryKey.toLowerCase(Locale.ROOT)
-            .contains("chest")) {
-            return;
-        }
-        boolean anyTesr = false;
-        for (CapturedQuad q : f.quadsForBlock) {
-            if (q.fromTesrPostCapture) {
-                anyTesr = true;
-                break;
-            }
-        }
-        if (!anyTesr) {
-            return;
-        }
-        f.quadsForBlock.removeIf(q -> !q.fromTesrPostCapture);
     }
 
     private static final class Frame {
@@ -435,10 +459,10 @@ public final class TessellatorCaptureState {
         CaptureGeometrySource geometrySource = CaptureGeometrySource.PRIMARY;
         /** 最近一次 {@link #noteTextureBind}，闭合 quad 时写入 {@link CapturedQuad#bindTextureHint} */
         String lastBoundTextureKey = "";
-               /** {@link #beginTesrPostVertexPhase} 与当前 {@link #beginBlock} 捕获块对齐 */
-        boolean tesrPostRecording;
-        final float[] tesrInverseMvAtRenderStart = new float[16];
-        boolean tesrInverseMvAtRenderStartValid;
+        /** {@link #beginDynamicExtensionVertexPhase} 与当前 {@link #beginBlock} 捕获块对齐 */
+        boolean dynamicExtensionVertexRecording;
+        final float[] dynamicExtensionInverseMvAtRenderStart = new float[16];
+        boolean dynamicExtensionInverseMvAtRenderStartValid;
         final List<CapturedQuad> quadsForBlock = new ArrayList<>();
         final List<CapturedVertex> currentQuadVerts = new ArrayList<>();
     }
@@ -482,8 +506,8 @@ public final class TessellatorCaptureState {
         public String bindTextureHint = "";
         /** {@link MaterialKeyResolver#applySpriteLocalToQuad}：材质来自非图集 bind，采样器不写 blocks 图集 */
         public boolean materialUsesStandaloneTexture;
-        /** 四边形闭合时处于 {@link Frame#tesrPostRecording}（TESR post 路径） */
-        public boolean fromTesrPostCapture;
+        /** 四边形闭合时处于动态扩展顶点录制（{@link Frame#dynamicExtensionVertexRecording}） */
+        public boolean fromDynamicExtensionPass;
 
         public CapturedQuad(List<CapturedVertex> vertices) {
             this.vertices = vertices;

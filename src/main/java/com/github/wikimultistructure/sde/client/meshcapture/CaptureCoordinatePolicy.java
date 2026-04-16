@@ -38,7 +38,7 @@ public final class CaptureCoordinatePolicy {
         CaptureGeometrySource geometrySource) {
         if (geometrySource == CaptureGeometrySource.INVENTORY_FALLBACK) {
             FMLLog.fine("[SDE] capture used inventory fallback for " + registryKey + " renderType=" + renderType);
-        } else if (geometrySource == CaptureGeometrySource.TESR_POST_RENDER) {
+        } else if (geometrySource == CaptureGeometrySource.DYNAMIC_EXTENSION) {
             FMLLog.fine("[SDE] capture used TESR post-render for " + registryKey + " renderType=" + renderType);
         }
 
