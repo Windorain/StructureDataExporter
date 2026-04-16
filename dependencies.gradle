@@ -23,4 +23,8 @@ dependencies {
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:AE2FluidCraft-Rework:1.5.58-gtnh:dev")
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:Postea:1.1.5:dev")
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:Hodgepodge:2.7.62:dev")
+
+    // 与 GT5-Unofficial dependencies.gradle 中 compileOnlyApi / runtime 测试条目对齐：末影接口（Ender IO）、红石工程（Project Red）
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:EnderIO:2.10.18:dev")
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:ProjectRed:4.12.24-GTNH:dev")
 }
