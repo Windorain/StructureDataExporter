@@ -1,7 +1,9 @@
 package com.github.wikimultistructure.sde.client.meshcapture;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.Tessellator;
@@ -79,7 +81,8 @@ public final class TessellatorCaptureState {
     }
 
     /**
-     * 由 {@code TextureManager#bindTexture} mixin 在捕获激活时调用，用于动态扩展/实体贴图等<strong>非方块图集</strong>路径。
+     * 由 {@code TextureManager#bindTexture} mixin 在捕获激活时更新「当前 bind」；每个顶点在 {@link #onVertexRecorded} 时复制到
+     * {@link CapturedVertex#textureBindHintAtVertex}，闭合四边形时再聚合为 {@link CapturedQuad#bindTextureHint}。
      */
     public static void noteTextureBind(ResourceLocation loc) {
         synchronized (CAPTURE) {
@@ -271,12 +274,25 @@ public final class TessellatorCaptureState {
                 if (ASSERT_BLOCK_LOCAL_BOUNDS) {
                     assertBlockLocalVertex(f.registryKey, f.renderType, kind, xf, yf, zf);
                 }
-                nv.add(new CapturedVertex(xf, yf, zf, v.u, v.v, v.brightness, v.colorArgb, 0.0, 0.0, 0.0));
+                nv.add(
+                    new CapturedVertex(
+                        xf,
+                        yf,
+                        zf,
+                        v.u,
+                        v.v,
+                        v.brightness,
+                        v.colorArgb,
+                        0.0,
+                        0.0,
+                        0.0,
+                        v.textureBindHintAtVertex));
             }
             CapturedQuad nq = new CapturedQuad(nv);
             nq.materialKey = q.materialKey;
             nq.samplerIndex = q.samplerIndex;
             nq.bindTextureHint = q.bindTextureHint;
+            nq.materialAtlasKind = q.materialAtlasKind;
             nq.materialUsesStandaloneTexture = q.materialUsesStandaloneTexture;
             nq.fromDynamicExtensionPass = q.fromDynamicExtensionPass;
             rebuilt.add(nq);
@@ -410,6 +426,52 @@ public final class TessellatorCaptureState {
         };
     }
 
+    /**
+     * 各顶点在 {@link #onVertexRecorded} 时快照的 bind；闭合四边形时聚合成 {@link CapturedQuad#bindTextureHint}（多数票，平票取顶点顺序先出现者）。
+     */
+    private static String aggregateBindHintsForQuad(List<CapturedVertex> verts) {
+        if (verts.isEmpty()) {
+            return "";
+        }
+        List<String> hints = new ArrayList<>(verts.size());
+        for (CapturedVertex v : verts) {
+            String h = v.textureBindHintAtVertex;
+            hints.add(h != null ? h : "");
+        }
+        String h0 = hints.get(0);
+        boolean allSame = true;
+        for (String h : hints) {
+            if (!h0.equals(h)) {
+                allSame = false;
+                break;
+            }
+        }
+        if (allSame) {
+            return h0;
+        }
+        Map<String, Integer> counts = new HashMap<>();
+        for (String h : hints) {
+            if (h.isEmpty()) {
+                continue;
+            }
+            Integer n = counts.get(h);
+            counts.put(h, n == null ? 1 : n + 1);
+        }
+        if (counts.isEmpty()) {
+            return "";
+        }
+        int max = 0;
+        for (int c : counts.values()) {
+            max = Math.max(max, c);
+        }
+        for (String h : hints) {
+            if (!h.isEmpty() && counts.get(h) == max) {
+                return h;
+            }
+        }
+        return "";
+    }
+
     private static void assertBlockLocalVertex(String registryKey, int renderType, CaptureCoordinatePolicy.Kind kind, double x,
         double y, double z) {
         if (x < BOUNDS_ASSERT_LO || y < BOUNDS_ASSERT_LO || z < BOUNDS_ASSERT_LO || x > BOUNDS_ASSERT_HI || y > BOUNDS_ASSERT_HI
@@ -427,7 +489,9 @@ public final class TessellatorCaptureState {
             if (!fr.active) {
                 return;
             }
-            CapturedVertex cv = new CapturedVertex(x, y, z, u, v, brightness, colorArgb, tessOffsetX, tessOffsetY, tessOffsetZ);
+            String bindSnap = fr.lastBoundTextureKey != null ? fr.lastBoundTextureKey : "";
+            CapturedVertex cv =
+                new CapturedVertex(x, y, z, u, v, brightness, colorArgb, tessOffsetX, tessOffsetY, tessOffsetZ, bindSnap);
             fr.currentQuadVerts.add(cv);
             boolean triangleMode = tessellatorDrawMode == GL11.GL_TRIANGLES;
             int need = triangleMode ? 3 : 4;
@@ -446,10 +510,11 @@ public final class TessellatorCaptureState {
                             c2.colorArgb,
                             c2.tessOffsetX,
                             c2.tessOffsetY,
-                            c2.tessOffsetZ));
+                            c2.tessOffsetZ,
+                            c2.textureBindHintAtVertex));
                 }
                 CapturedQuad cq = new CapturedQuad(forQuad);
-                cq.bindTextureHint = fr.lastBoundTextureKey != null ? fr.lastBoundTextureKey : "";
+                cq.bindTextureHint = aggregateBindHintsForQuad(forQuad);
                 cq.fromDynamicExtensionPass = fr.dynamicExtensionVertexRecording;
                 fr.quadsForBlock.add(cq);
                 fr.currentQuadVerts.clear();
@@ -478,7 +543,7 @@ public final class TessellatorCaptureState {
         int renderType;
         String registryKey = "";
         CaptureGeometrySource geometrySource = CaptureGeometrySource.PRIMARY;
-        /** 最近一次 {@link #noteTextureBind}，闭合 quad 时写入 {@link CapturedQuad#bindTextureHint} */
+        /** 最近一次 {@link #noteTextureBind}；顶点录制时写入 {@link CapturedVertex#textureBindHintAtVertex} */
         String lastBoundTextureKey = "";
         /** {@link #beginDynamicExtensionVertexPhase} 与当前 {@link #beginBlock} 捕获块对齐 */
         boolean dynamicExtensionVertexRecording;
@@ -502,9 +567,14 @@ public final class TessellatorCaptureState {
         public final double tessOffsetX;
         public final double tessOffsetY;
         public final double tessOffsetZ;
+        /**
+         * 该顶点调用 {@link Tessellator#addVertex} 时，由 {@link #noteTextureBind} 记录下的最近一次 bind（与四边形
+         * {@link CapturedQuad#bindTextureHint} 的聚合来源一致）。
+         */
+        public final String textureBindHintAtVertex;
 
         public CapturedVertex(double x, double y, double z, double u, double v, int brightness, int colorArgb,
-            double tessOffsetX, double tessOffsetY, double tessOffsetZ) {
+            double tessOffsetX, double tessOffsetY, double tessOffsetZ, String textureBindHintAtVertex) {
             this.x = x;
             this.y = y;
             this.z = z;
@@ -515,6 +585,7 @@ public final class TessellatorCaptureState {
             this.tessOffsetX = tessOffsetX;
             this.tessOffsetY = tessOffsetY;
             this.tessOffsetZ = tessOffsetZ;
+            this.textureBindHintAtVertex = textureBindHintAtVertex != null ? textureBindHintAtVertex : "";
         }
     }
 
@@ -523,8 +594,15 @@ public final class TessellatorCaptureState {
         public final List<CapturedVertex> vertices;
         public String materialKey = "unknown";
         public int samplerIndex;
-        /** 四边形闭合时 Tessellator 绑定的纹理键（domain:path 风格，path 已 normalize） */
+        /**
+         * 由四顶点 {@link CapturedVertex#textureBindHintAtVertex} 聚合（多数票）；domain:path，path 已 normalize。
+         */
         public String bindTextureHint = "";
+        /**
+         * 图集材质：与 {@code materialPalette[].atlas} 一致（{@code blocks} / {@code items}）；独立贴图时由采样器写
+         * {@code atlas:null}，本字段可忽略。
+         */
+        public String materialAtlasKind = "blocks";
         /** {@link MaterialKeyResolver#applySpriteLocalToQuad}：材质来自非图集 bind，采样器不写 blocks 图集 */
         public boolean materialUsesStandaloneTexture;
         /** 四边形闭合时处于动态扩展顶点录制（{@link Frame#dynamicExtensionVertexRecording}） */

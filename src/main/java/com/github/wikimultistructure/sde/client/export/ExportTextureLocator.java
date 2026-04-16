@@ -1,9 +1,13 @@
 package com.github.wikimultistructure.sde.client.export;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 import net.minecraft.block.Block;
 import net.minecraft.util.IIcon;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import com.github.wikimultistructure.sde.core.registry.gt.GtRenderProfiles;
@@ -134,13 +138,16 @@ public final class ExportTextureLocator {
      * <p>
      * <b>处理规则</b>：去掉 path 段重复的 {@code textures/}；若 path 不以显式纹理根（{@code blocks/}、{@code items/}、{@code models/}、
      * {@code entity/} 等，与 Wiki {@code resolveAssets} 一致）开头，则补上 {@code blocks/}。{@code models/…} 对应磁盘
-     * {@code assets/&lt;ns&gt;/models/…png}，不得误加 {@code blocks/} 前缀。
+     * {@code assets/&lt;ns&gt;/models/…png}，不得误加 {@code blocks/} 前缀。GregTech {@code materialicons/…} 在
+     * {@code textures/blocks/materialicons/} 与 {@code textures/items/materialicons/} 均可能出现，见
+     * {@link #texturePngResourceLocationsForBundle}。
      * <p>
      * 可多次调用，幂等。
      */
     private static final String[] EXPLICIT_TEXTURE_PATH_ROOTS = new String[] {
         "blocks/",
         "items/",
+        "materialicons/",
         "models/",
         "entity/",
         "gui/",
@@ -179,5 +186,33 @@ public final class ExportTextureLocator {
             path = "blocks/" + path;
         }
         return ns + ":" + path;
+    }
+
+    /**
+     * 规范化后的 locator → 探测 PNG 时依次尝试的 {@link ResourceLocation}（与 {@link #normalizeLocatorForBundle} 配套）。
+     * GregTech {@code materialicons/} 同时存在于 blocks/items 纹理目录，不得拼成 {@code textures/materialicons/…}。
+     */
+    public static List<ResourceLocation> texturePngResourceLocationsForBundle(String normalizedLocator) {
+        if (normalizedLocator == null) {
+            return Collections.emptyList();
+        }
+        int colon = normalizedLocator.indexOf(':');
+        if (colon < 0) {
+            return Collections.emptyList();
+        }
+        String ns = normalizedLocator.substring(0, colon);
+        String path = normalizedLocator.substring(colon + 1);
+        List<ResourceLocation> out = new ArrayList<>(2);
+        if (path.startsWith("models/")) {
+            out.add(new ResourceLocation(ns, path + ".png"));
+            return out;
+        }
+        if (path.startsWith("materialicons/")) {
+            out.add(new ResourceLocation(ns, "textures/blocks/" + path + ".png"));
+            out.add(new ResourceLocation(ns, "textures/items/" + path + ".png"));
+            return out;
+        }
+        out.add(new ResourceLocation(ns, "textures/" + path + ".png"));
+        return out;
     }
 }

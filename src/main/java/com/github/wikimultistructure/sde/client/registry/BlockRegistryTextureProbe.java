@@ -5,6 +5,8 @@ import java.io.IOException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ResourceLocation;
 
+import com.github.wikimultistructure.sde.client.export.ExportTextureLocator;
+
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
@@ -15,14 +17,16 @@ public final class BlockRegistryTextureProbe {
     private BlockRegistryTextureProbe() {}
 
     public static boolean texturePngExistsForLocator(Minecraft mc, String locator) {
-        int colon = locator.indexOf(':');
-        if (colon < 0) {
+        String norm = ExportTextureLocator.normalizeLocatorForBundle(locator);
+        if (norm == null) {
             return false;
         }
-        String ns = locator.substring(0, colon);
-        String path = locator.substring(colon + 1);
-        ResourceLocation texLoc = new ResourceLocation(ns, "textures/" + path + ".png");
-        return resourceExists(mc, texLoc);
+        for (ResourceLocation texLoc : ExportTextureLocator.texturePngResourceLocationsForBundle(norm)) {
+            if (resourceExists(mc, texLoc)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean resourceExists(Minecraft mc, ResourceLocation loc) {

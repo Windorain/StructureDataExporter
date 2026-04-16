@@ -16,6 +16,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * Maps atlas UV to a stable sprite name (materialKey) by containment test; prefers smallest sprite area on ties.
+ * MC 1.7.10 有方块与物品两套 {@link TextureMap}；绑定以 {@link TessellatorCaptureState} 顶点级快照聚合为准。
  */
 @SideOnly(Side.CLIENT)
 public final class MaterialKeyResolver {
@@ -86,6 +87,31 @@ public final class MaterialKeyResolver {
         return s.contains("atlas/blocks") || s.contains("atlas/items");
     }
 
+    /** 与 {@link TessellatorCaptureState#noteTextureBind} 写入的 hint 一致（path 段经 {@link #normalizeMaterialKey}）。 */
+    public static boolean isItemsAtlasBindHint(String hint) {
+        if (hint == null || hint.isEmpty()) {
+            return false;
+        }
+        String s = hint;
+        int c = s.indexOf(':');
+        if (c >= 0) {
+            s = s.substring(c + 1);
+        }
+        return s.contains("atlas/items");
+    }
+
+    /**
+     * 物品图集 {@link TextureMap#locationItemsTexture}；与方块图集并列存在于 {@link net.minecraft.client.renderer.texture.TextureManager}。
+     */
+    public static TextureMap getTextureMapItems(Minecraft mc) {
+        if (mc == null || mc.getTextureManager() == null) {
+            return null;
+        }
+        net.minecraft.client.renderer.texture.ITextureObject tex = mc.getTextureManager()
+            .getTexture(TextureMap.locationItemsTexture);
+        return tex instanceof TextureMap ? (TextureMap) tex : null;
+    }
+
     /**
      * 按与 {@link #normalizeMaterialKey} 一致的键在图集中查找 sprite，供将图集 UV 换算为 sprite 局部 [0,1]。
      */
@@ -125,6 +151,13 @@ public final class MaterialKeyResolver {
             q.materialKey = hint;
             return hint;
         }
+        TextureMap activeAtlas = textureMap;
+        if (hint != null && isAtlasBindMaterialKey(hint) && isItemsAtlasBindHint(hint)) {
+            TextureMap items = getTextureMapItems(Minecraft.getMinecraft());
+            if (items instanceof TextureMapAccessor) {
+                activeAtlas = items;
+            }
+        }
         double su = 0, sv = 0;
         for (TessellatorCaptureState.CapturedVertex v : q.vertices) {
             su += v.u;
@@ -137,14 +170,36 @@ public final class MaterialKeyResolver {
         }
         su /= vn;
         sv /= vn;
-        String materialKey = resolveMidUv(su, sv, textureMap);
-        TextureAtlasSprite spr = findSpriteForMaterialKey(materialKey, textureMap);
+        String materialKey = resolveMidUv(su, sv, activeAtlas);
+        TextureAtlasSprite spr = findSpriteForMaterialKey(materialKey, activeAtlas);
+        if (spr == null) {
+            TextureMap items = getTextureMapItems(Minecraft.getMinecraft());
+            TextureMap blocks = textureMap;
+            for (TextureMap tryMap : new TextureMap[] {
+                items,
+                blocks
+            }) {
+                if (!(tryMap instanceof TextureMapAccessor) || tryMap == activeAtlas) {
+                    continue;
+                }
+                String mk2 = resolveMidUv(su, sv, tryMap);
+                TextureAtlasSprite sp2 = findSpriteForMaterialKey(mk2, tryMap);
+                if (sp2 != null) {
+                    materialKey = mk2;
+                    spr = sp2;
+                    activeAtlas = tryMap;
+                    break;
+                }
+            }
+        }
         q.materialUsesStandaloneTexture = false;
         if ("unknown".equals(materialKey) && hint != null && !hint.isEmpty()
             && !isAtlasBindMaterialKey(hint)) {
             materialKey = hint;
             spr = null;
             q.materialUsesStandaloneTexture = true;
+        } else {
+            q.materialAtlasKind = activeAtlas == textureMap ? "blocks" : "items";
         }
         List<TessellatorCaptureState.CapturedVertex> remapped = new ArrayList<>(4);
         for (TessellatorCaptureState.CapturedVertex v : q.vertices) {
@@ -173,7 +228,8 @@ public final class MaterialKeyResolver {
                     v.colorArgb,
                     v.tessOffsetX,
                     v.tessOffsetY,
-                    v.tessOffsetZ));
+                    v.tessOffsetZ,
+                    v.textureBindHintAtVertex));
         }
         q.vertices.clear();
         q.vertices.addAll(remapped);

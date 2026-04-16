@@ -204,19 +204,19 @@ public final class ExportBundleClient {
      */
     private static void registerMaterialMetadataOnly(Minecraft mc, String locator, Map<String, JsonObject> materialsOut)
         throws IOException {
-        int colon = locator.indexOf(':');
-        if (colon < 0) {
+        ResourceLocation texLoc = null;
+        for (ResourceLocation candidate : ExportTextureLocator.texturePngResourceLocationsForBundle(locator)) {
+            if (resourceExists(mc, candidate)) {
+                texLoc = candidate;
+                break;
+            }
+        }
+        if (texLoc == null) {
             return;
         }
-        String ns = locator.substring(0, colon);
-        String path = locator.substring(colon + 1);
-        ResourceLocation texLoc = new ResourceLocation(ns, "textures/" + path + ".png");
 
-        if (!resourceExists(mc, texLoc)) {
-            return;
-        }
-
-        ResourceLocation mcmetaLoc = new ResourceLocation(ns, "textures/" + path + ".png.mcmeta");
+        String texPath = texLoc.getResourcePath();
+        ResourceLocation mcmetaLoc = new ResourceLocation(texLoc.getResourceDomain(), texPath + ".mcmeta");
         if (!materialsOut.containsKey(locator)) {
             JsonObject m = new JsonObject();
             m.addProperty("locator", locator);

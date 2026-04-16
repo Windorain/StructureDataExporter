@@ -40,6 +40,7 @@ import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptu
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureContext;
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureRegistry;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
+import com.github.wikimultistructure.sde.mixin.interfaces.accessors.TextureMapAccessor;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
@@ -604,7 +605,8 @@ public final class MeshCaptureService {
     private static void attachMaterials(CapturedBlockInstance inst, TextureMap textureMap, SamplerTable samplers) {
         for (CapturedQuad q : inst.quads) {
             String materialKey = MaterialKeyResolver.applySpriteLocalToQuad(q, textureMap);
-            q.samplerIndex = samplers.indexForMaterial(materialKey, textureMap, q.materialUsesStandaloneTexture);
+            String atlasKind = q.materialUsesStandaloneTexture ? null : q.materialAtlasKind;
+            q.samplerIndex = samplers.indexForMaterial(materialKey, textureMap, q.materialUsesStandaloneTexture, atlasKind);
         }
     }
 
@@ -613,8 +615,9 @@ public final class MeshCaptureService {
         private final List<JsonObject> list = new ArrayList<>();
         private final Map<String, Integer> indexByKey = new LinkedHashMap<>();
 
-        int indexForMaterial(String materialKey, TextureMap textureMap, boolean standaloneFileTexture) {
-            String cacheKey = standaloneFileTexture ? materialKey + "\0__sde_file_tex" : materialKey;
+        int indexForMaterial(String materialKey, TextureMap blocksTextureMap, boolean standaloneFileTexture, String paletteAtlasKind) {
+            String atlasBand = standaloneFileTexture ? "file" : ("items".equals(paletteAtlasKind) ? "items" : "blocks");
+            String cacheKey = standaloneFileTexture ? materialKey + "\0__sde_file_tex" : materialKey + "\0" + atlasBand;
             Integer idx = indexByKey.get(cacheKey);
             if (idx != null) {
                 return idx;
@@ -624,11 +627,17 @@ public final class MeshCaptureService {
             if (standaloneFileTexture) {
                 s.add("atlas", JsonNull.INSTANCE);
             } else {
-                s.addProperty("atlas", "blocks");
+                s.addProperty("atlas", atlasBand);
             }
             s.addProperty("linear", true);
             s.addProperty("useMipmaps", true);
-            s.addProperty("kind", inferMaterialKindForSprite(materialKey, textureMap));
+            TextureMap kindMap = "items".equals(paletteAtlasKind)
+                ? MaterialKeyResolver.getTextureMapItems(Minecraft.getMinecraft())
+                : blocksTextureMap;
+            if (kindMap == null || !(kindMap instanceof TextureMapAccessor)) {
+                kindMap = blocksTextureMap;
+            }
+            s.addProperty("kind", inferMaterialKindForSprite(materialKey, kindMap));
             int i = list.size();
             list.add(s);
             indexByKey.put(cacheKey, i);

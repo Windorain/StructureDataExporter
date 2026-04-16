@@ -25,6 +25,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
+import cpw.mods.fml.common.FMLLog;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
@@ -54,7 +55,7 @@ public final class TextureBlobEmbedder {
 
     public static void embedIntoDocument(JsonObject documentRoot) throws Exception {
         Minecraft mc = Minecraft.getMinecraft();
-        TextureMap map = mc.getTextureMapBlocks();
+        TextureMap blocksAtlas = mc.getTextureMapBlocks();
         IResourceManager rm = mc.getResourceManager();
 
         List<JsonArray> palettes = new ArrayList<>();
@@ -82,8 +83,17 @@ public final class TextureBlobEmbedder {
                     .getAsString();
                 boolean standalone = m.has("atlas") && m.get("atlas")
                     .isJsonNull();
+                String atlasStr = "blocks";
+                if (m.has("atlas") && m.get("atlas")
+                    .isJsonPrimitive()) {
+                    atlasStr = m.get("atlas")
+                        .getAsString();
+                }
+                TextureMap itemsAtlas = MaterialKeyResolver.getTextureMapItems(mc);
+                TextureMap spriteAtlas =
+                    standalone ? blocksAtlas : ("items".equals(atlasStr) && itemsAtlas != null ? itemsAtlas : blocksAtlas);
 
-                byte[] png = loadTexturePngBytes(locator, standalone, map, rm);
+                byte[] png = loadTexturePngBytes(locator, standalone, spriteAtlas, rm);
                 String sha = sha256Hex(png);
                 Integer idx = shaToIndex.get(sha);
                 if (idx == null) {
@@ -124,19 +134,25 @@ public final class TextureBlobEmbedder {
         }
     }
 
-    private static byte[] loadTexturePngBytes(String locator, boolean standalone, TextureMap map, IResourceManager rm)
+    private static byte[] loadTexturePngBytes(String locator, boolean standalone, TextureMap spriteAtlas, IResourceManager rm)
         throws Exception {
         if (locator == null || locator.isEmpty() || "unknown".equals(locator)) {
             return getPlaceholderPngBytes();
         }
 
-        byte[] fromDisk = tryLoadPng(rm, locatorToTextureResource(locator));
+        byte[] fromDisk = tryLoadPngForNormalizedLocator(rm, locator);
         if (fromDisk != null) {
             return fromDisk;
         }
 
         if (!standalone) {
-            TextureAtlasSprite spr = MaterialKeyResolver.findSpriteForMaterialKey(locator, map);
+            TextureAtlasSprite spr = null;
+            for (TextureMap m : atlasProbeOrderForSpriteLookup(locator, spriteAtlas)) {
+                spr = MaterialKeyResolver.findSpriteForMaterialKey(locator, m);
+                if (spr != null) {
+                    break;
+                }
+            }
             if (spr != null) {
                 /*
                  * 图集 stitch 上传后，无动画 sprite 会 clearFramesTextureData，getFrameTextureData(0) 对空 list 越界。
@@ -155,7 +171,7 @@ public final class TextureBlobEmbedder {
                 String iconName = spr.getIconName();
                 if (iconName != null && !iconName.isEmpty()) {
                     String fromIcon = ExportTextureLocator.iconNameToLocator(iconName);
-                    fromDisk = tryLoadPng(rm, locatorToTextureResource(fromIcon));
+                    fromDisk = tryLoadPngForNormalizedLocator(rm, fromIcon);
                     if (fromDisk != null) {
                         return fromDisk;
                     }
@@ -163,7 +179,63 @@ public final class TextureBlobEmbedder {
             }
         }
 
-        throw new IOException("无法读取纹理 PNG（locator=" + locator + ", standalone=" + standalone + "）");
+        FMLLog.warning(
+            "[SDE] TextureBlobEmbedder: 无法从磁盘或图集得到像素，使用占位 PNG（locator=%s, standalone=%s）",
+            locator,
+            Boolean.valueOf(standalone));
+        return getPlaceholderPngBytes();
+    }
+
+    /**
+     * GregTech {@code materialicons/} 精灵在物品图集；其它材质按 palette 主选图集再试另一套。
+     */
+    private static List<TextureMap> atlasProbeOrderForSpriteLookup(String locator, TextureMap primary) {
+        List<TextureMap> out = new ArrayList<>(2);
+        Minecraft mc = Minecraft.getMinecraft();
+        TextureMap blocks = mc.getTextureMapBlocks();
+        TextureMap items = MaterialKeyResolver.getTextureMapItems(mc);
+        String norm = ExportTextureLocator.normalizeLocatorForBundle(locator);
+        if (norm != null) {
+            int c = norm.indexOf(':');
+            if (c >= 0) {
+                String path = norm.substring(c + 1);
+                if (path.startsWith("materialicons/")) {
+                    addUniqueAtlas(out, items);
+                    addUniqueAtlas(out, blocks);
+                    return out;
+                }
+            }
+        }
+        addUniqueAtlas(out, primary != null ? primary : blocks);
+        TextureMap other = primary == blocks || primary == null ? items : blocks;
+        addUniqueAtlas(out, other);
+        return out;
+    }
+
+    private static void addUniqueAtlas(List<TextureMap> out, TextureMap m) {
+        if (m == null) {
+            return;
+        }
+        for (TextureMap x : out) {
+            if (x == m) {
+                return;
+            }
+        }
+        out.add(m);
+    }
+
+    private static byte[] tryLoadPngForNormalizedLocator(IResourceManager rm, String locator) {
+        String norm = ExportTextureLocator.normalizeLocatorForBundle(locator);
+        if (norm == null) {
+            return null;
+        }
+        for (ResourceLocation rl : ExportTextureLocator.texturePngResourceLocationsForBundle(norm)) {
+            byte[] b = tryLoadPng(rm, rl);
+            if (b != null) {
+                return b;
+            }
+        }
+        return null;
     }
 
     private static byte[] tryLoadPng(IResourceManager rm, ResourceLocation rl) {
@@ -176,24 +248,6 @@ public final class TextureBlobEmbedder {
         } catch (IOException ignored) {
             return null;
         }
-    }
-
-    /** 与 Wiki {@code locatorToRelativePngPath}：{@code models/} 在 assets 根下，其余在 {@code textures/} 下。 */
-    private static ResourceLocation locatorToTextureResource(String locator) {
-        String norm = ExportTextureLocator.normalizeLocatorForBundle(locator);
-        if (norm == null) {
-            return null;
-        }
-        int c = norm.indexOf(':');
-        if (c < 0) {
-            return null;
-        }
-        String ns = norm.substring(0, c);
-        String path = norm.substring(c + 1);
-        if (path.startsWith("models/")) {
-            return new ResourceLocation(ns, path + ".png");
-        }
-        return new ResourceLocation(ns, "textures/" + path + ".png");
     }
 
     private static byte[] rgbaArrayToPng(int[] argb, int w, int h) throws IOException {
