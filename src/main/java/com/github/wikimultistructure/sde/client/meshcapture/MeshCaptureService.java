@@ -24,13 +24,18 @@ import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.Timer;
 import net.minecraft.world.World;
 
 import org.lwjgl.opengl.GL11;
 
+import cpw.mods.fml.relauncher.ReflectionHelper;
+
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedBlockInstance;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
+import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderContext;
+import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderRegistry;
 import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
@@ -214,9 +219,30 @@ public final class MeshCaptureService {
             if (!renderDualForgeWorldPassIfNeeded(rb, b, wx, wy, wz)) {
                 rb.renderBlockByRenderType(b, wx, wy, wz);
             }
-            int quadsAfterWorld = TessellatorCaptureState.currentBlockRecordedQuadCount();
+            /*
+             * 结束静态批次再 dispatch：FMP/PR 的 renderDynamic 内会 CCRenderState#startDrawingInstance →
+             * Tessellator#startDrawing。若外层 startDrawingQuads 尚未 draw，将 IllegalStateException: Already tesselating
+             *（与 Vector3/ClassLoader 反射无关）。
+             */
             tess.draw();
-            if (quadsAfterWorld == 0) {
+
+            MeshCaptureBlockPostRenderRegistry.dispatch(
+                new MeshCaptureBlockPostRenderContext(
+                    world,
+                    wx,
+                    wy,
+                    wz,
+                    b,
+                    blockMeta,
+                    rb,
+                    partialTicksForMeshCapture()));
+            int quadsBeforeDraw = TessellatorCaptureState.currentBlockRecordedQuadCount();
+            try {
+                tess.draw();
+            } catch (Throwable ignored) {
+                /* 动态路径常已在内部 drawInstance；此时不再处于绘制中 */
+            }
+            if (quadsBeforeDraw == 0) {
                 TessellatorCaptureState.markInventoryFallbackForActiveCapture();
                 GL11.glPushMatrix();
                 try {
@@ -679,5 +705,19 @@ public final class MeshCaptureService {
             return "animated";
         }
         return "static16";
+    }
+
+    /** {@link Minecraft#timer} 在 MCP 中为 private，供 multipart 动态插值与游戏一致。 */
+    private static float partialTicksForMeshCapture() {
+        try {
+            Minecraft mc = Minecraft.getMinecraft();
+            Timer timer = ReflectionHelper.getPrivateValue(Minecraft.class, mc, "timer", "field_71428_T");
+            if (timer != null) {
+                return timer.renderPartialTicks;
+            }
+        } catch (Throwable ignored) {
+            /* ignore */
+        }
+        return 0.0F;
     }
 }
