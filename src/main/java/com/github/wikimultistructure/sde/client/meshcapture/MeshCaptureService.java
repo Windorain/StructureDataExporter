@@ -211,7 +211,7 @@ public final class MeshCaptureService {
             Tessellator tess = Tessellator.instance;
             tess.startDrawingQuads();
             MeshCaptureRenderPreparation.beforeBlockRender(rb);
-            if (!renderGregTechMachinesWithForgeRenderPasses(rb, b, wx, wy, wz)) {
+            if (!renderDualForgeWorldPassIfNeeded(rb, b, wx, wy, wz)) {
                 rb.renderBlockByRenderType(b, wx, wy, wz);
             }
             int quadsAfterWorld = TessellatorCaptureState.currentBlockRecordedQuadCount();
@@ -302,14 +302,26 @@ public final class MeshCaptureService {
     }
 
     /**
-     * GT 机器块：{@code GTRenderedTexture} 的 overlay 仅在 world render pass 1 绘制；捕获时补跑 pass 0 + 1。
+     * 需在 Forge {@code worldRenderPass} 0与 1 下各绘制一次的方块（离屏单次 pass 0 会缺层）：
+     * <ul>
+     * <li>GT {@code GTRenderedTexture} overlay 仅在 pass 1；</li>
+     * <li>AE2 {@code BlockCableBus} 等在开启 AlphaPass 时 {@link Block#getRenderBlockPass()} 为 1，
+     * 且 {@code canRenderInPass} 内会同步 {@code BusRenderHelper#setPass}，必须在切换 Forge pass 前调用。</li>
+     * </ul>
      *
-     * @return {@code true} 已处理（含无法改 pass 时单次渲染）；{@code false} 非 GT 机器块，由调用方渲染。
+     * @return {@code true} 已处理（含无法改 pass 时的单次兜底渲染）；{@code false} 走调用方单次 {@code renderBlockByRenderType}。
      */
-    private static boolean renderGregTechMachinesWithForgeRenderPasses(RenderBlocks rb, Block b, int wx, int wy, int wz) {
+    private static boolean renderDualForgeWorldPassIfNeeded(RenderBlocks rb, Block b, int wx, int wy, int wz) {
         GameRegistry.UniqueIdentifier uid = GameRegistry.findUniqueIdentifierFor(b);
         String reg = uid == null ? "" : uid.toString();
-        if (!GregTechMetaTileRegistry.isGregTechBlockMachines(b, reg)) {
+        boolean gtMachines = GregTechMetaTileRegistry.isGregTechBlockMachines(b, reg);
+        boolean multiRenderPassBlock;
+        try {
+            multiRenderPassBlock = b.getRenderBlockPass() > 0;
+        } catch (Throwable ignored) {
+            multiRenderPassBlock = false;
+        }
+        if (!gtMachines && !multiRenderPassBlock) {
             return false;
         }
         if (!ForgeWorldRenderPassUtil.canSetPass()) {
@@ -318,10 +330,17 @@ public final class MeshCaptureService {
         }
         int saved = ForgeWorldRenderPassUtil.getPass();
         try {
-            ForgeWorldRenderPassUtil.setPass(0);
-            rb.renderBlockByRenderType(b, wx, wy, wz);
-            ForgeWorldRenderPassUtil.setPass(1);
-            rb.renderBlockByRenderType(b, wx, wy, wz);
+            for (int pass = 0; pass <= 1; pass++) {
+                if (multiRenderPassBlock) {
+                    try {
+                        b.canRenderInPass(pass);
+                    } catch (Throwable ignored) {
+                        /* 与区块渲染一致：AE2 CableBus 等在此同步内部 pass */
+                    }
+                }
+                ForgeWorldRenderPassUtil.setPass(pass);
+                rb.renderBlockByRenderType(b, wx, wy, wz);
+            }
         } finally {
             ForgeWorldRenderPassUtil.setPass(saved);
         }

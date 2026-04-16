@@ -7,10 +7,11 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * GT5U {@code GTRenderedTexture} 在 {@code ForgeHooksClient#getWorldRenderPass() == 1} 时才绘制
- * {@code IIconContainer#getOverlayIcon()}；离屏 {@link net.minecraft.client.renderer.RenderBlocks}
- * 捕获时 pass 多为 0，导致 hatch 等正面 overlay 丢失。通过反射读写 Forge 静态字段
- * {@code worldRenderPass}（与 {@code ForgeHooksClient#getWorldRenderPass()} 一致；勿与 {@code renderPass}/{@code setRenderPass} 混淆），可在同一次 Tessellator 批次内补画 pass 1。
+ * 离屏 {@link net.minecraft.client.renderer.RenderBlocks} 捕获时 Forge的 world pass 多为 0，而部分方块在
+ * pass 1 才画齐：例如 GT5U {@code GTRenderedTexture} 的 overlay；AE2 {@code BlockCableBus} 在开启 AlphaPass 时
+ * {@code getRenderBlockPass() == 1}且 {@code canRenderInPass} 依赖当前 pass。通过反射读写 Forge 静态字段
+ * {@code worldRenderPass}（与 {@code ForgeHooksClient#getWorldRenderPass()} 一致；勿与 {@code renderPass}/
+ * {@code setRenderPass} 混淆），可在同一次 Tessellator 批次内先后补画 pass 0 与 1。
  */
 @SideOnly(Side.CLIENT)
 final class ForgeWorldRenderPassUtil {
