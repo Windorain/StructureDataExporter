@@ -1,5 +1,7 @@
 package com.github.wikimultistructure.sde.client.export;
 
+import java.util.Locale;
+
 import net.minecraft.block.Block;
 import net.minecraft.util.IIcon;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -130,9 +132,36 @@ public final class ExportTextureLocator {
      * {@code modid:iconsets/...}，相对 {@code textures/} 仍缺一层 {@code blocks/}，磁盘实际路径为
      * {@code assets/modid/textures/blocks/iconsets/...png}。
      * <p>
-     * <b>处理规则</b>：去掉 path 段重复的 {@code textures/}；若 path 既不以 {@code blocks/} 也不以 {@code items/} 开头，则补上 {@code blocks/}。
-     * 已显式带 {@code blocks/} 或 {@code items/} 的不再改写。可多次调用，幂等。
+     * <b>处理规则</b>：去掉 path 段重复的 {@code textures/}；若 path 不以显式纹理根（{@code blocks/}、{@code items/}、{@code models/}、
+     * {@code entity/} 等，与 Wiki {@code resolveAssets} 一致）开头，则补上 {@code blocks/}。{@code models/…} 对应磁盘
+     * {@code assets/&lt;ns&gt;/models/…png}，不得误加 {@code blocks/} 前缀。
+     * <p>
+     * 可多次调用，幂等。
      */
+    private static final String[] EXPLICIT_TEXTURE_PATH_ROOTS = new String[] {
+        "blocks/",
+        "items/",
+        "models/",
+        "entity/",
+        "gui/",
+        "misc/",
+        "environment/",
+        "font/",
+        "map/",
+        "painting/",
+        "particle/",
+        "colormap/",
+    };
+
+    private static boolean pathHasExplicitTextureRoot(String path) {
+        for (String root : EXPLICIT_TEXTURE_PATH_ROOTS) {
+            if (path.startsWith(root)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static String normalizeLocatorForBundle(String locator) {
         if (locator == null) {
             return null;
@@ -141,12 +170,12 @@ public final class ExportTextureLocator {
         if (colon < 0) {
             return locator;
         }
-        String ns = locator.substring(0, colon);
+        String ns = locator.substring(0, colon).toLowerCase(Locale.ROOT);
         String path = locator.substring(colon + 1);
         while (path.startsWith("textures/")) {
             path = path.substring("textures/".length());
         }
-        if (!path.startsWith("blocks/") && !path.startsWith("items/")) {
+        if (!pathHasExplicitTextureRoot(path)) {
             path = "blocks/" + path;
         }
         return ns + ":" + path;

@@ -2,6 +2,7 @@ package com.github.wikimultistructure.sde.client.meshcapture;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import net.minecraft.client.Minecraft;
@@ -62,7 +63,14 @@ public final class MaterialKeyResolver {
         if (s.endsWith(".png")) {
             s = s.substring(0, s.length() - 4);
         }
-        return s.replace('\\', '/');
+        s = s.replace('\\', '/');
+        int c = s.indexOf(':');
+        if (c >= 0) {
+            String ns = s.substring(0, c);
+            String path = s.substring(c + 1);
+            s = ns.toLowerCase(Locale.ROOT) + ":" + path;
+        }
+        return s;
     }
 
     /** 方块/物品图集 bind；此类 UV 应由 {@link #resolveMidUv} 解析，不可用作独立贴图 fallback。 */
@@ -88,12 +96,13 @@ public final class MaterialKeyResolver {
         if (!(map instanceof TextureMapAccessor)) {
             return null;
         }
+        String want = normalizeMaterialKey(materialKey);
         Map<String, TextureAtlasSprite> sprites = ((TextureMapAccessor) map).sde$getMapRegisteredSprites();
         for (TextureAtlasSprite spr : sprites.values()) {
             if (spr == null) {
                 continue;
             }
-            if (normalizeMaterialKey(spr.getIconName()).equals(materialKey)) {
+            if (normalizeMaterialKey(spr.getIconName()).equals(want)) {
                 return spr;
             }
         }

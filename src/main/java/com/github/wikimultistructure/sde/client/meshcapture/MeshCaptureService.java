@@ -35,6 +35,7 @@ import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureSt
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderContext;
+import com.github.wikimultistructure.sde.client.export.TextureBlobEmbedder;
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderRegistry;
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureContext;
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureRegistry;
@@ -121,11 +122,18 @@ public final class MeshCaptureService {
                     finalizeSingleStructure(fr.getAsJsonObject("structure"));
                 }
             }
+            TextureBlobEmbedder.embedIntoDocument(root);
             return;
         }
         if (root.has("mode") && "voxelScan".equals(root.get("mode")
             .getAsString())) {
             finalizeSingleStructure(root);
+            TextureBlobEmbedder.embedIntoDocument(root);
+            return;
+        }
+        if (root.has("mode") && "voxelPalette".equals(root.get("mode")
+            .getAsString()) && !root.has("textureBlobs")) {
+            TextureBlobEmbedder.embedIntoDocument(root);
         }
     }
 
