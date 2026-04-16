@@ -23,7 +23,7 @@ public class CommandSde extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/sde <pos1|pos2|start|end|setName|setFrame|setStructureId|record|export|dump|status>";
+        return "/sde <pos1|pos2|start|end|setName|setFrame|setStructureId|record|export [raw]|dump|status>";
     }
 
     @Override
@@ -83,11 +83,12 @@ public class CommandSde extends CommandBase {
                 case "export":
                     if (!checkPlayer(sender)) return;
                     EntityPlayerMP exporter = (EntityPlayerMP) sender;
+                    boolean writeRaw = args.length >= 2 && "raw".equalsIgnoreCase(args[1]);
                     String path = s.exportToFile();
                     sender.addChatMessage(new ChatComponentText("SDE: 已写出场景文件: " + path));
                     java.io.File outFile = new java.io.File(path);
                     byte[] payload = Files.readAllBytes(Paths.get(path));
-                    SdeNetwork.sendEnrichExportedScene(exporter, outFile.getName(), payload);
+                    SdeNetwork.sendEnrichExportedScene(exporter, outFile.getName(), payload, writeRaw);
                     break;
                 case "dump":
                     if (!checkPlayer(sender)) return;

@@ -33,7 +33,7 @@ public class ClientProxy extends CommonProxy {
     }
 
     @Override
-    public void enqueueMeshCapturePayload(String fileName, byte[] utf8Json) {
-        MeshCaptureClient.enqueuePayload(fileName, utf8Json);
+    public void enqueueMeshCapturePayload(String fileName, byte[] utf8Json, boolean writeRaw) {
+        MeshCaptureClient.enqueuePayload(fileName, utf8Json, writeRaw);
     }
 }

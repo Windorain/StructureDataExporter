@@ -35,6 +35,7 @@ import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureSt
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderContext;
+import com.github.wikimultistructure.sde.client.export.SceneCompactJson;
 import com.github.wikimultistructure.sde.client.export.TextureBlobEmbedder;
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderRegistry;
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureContext;
@@ -82,8 +83,10 @@ public final class MeshCaptureService {
 
     /**
      * 解析网络负载 JSON，在客户端写出终态 StructureData 至 {@code structure_exports}。
+     *
+     * @param writeRaw {@code true} 时写出明文 Raw（含 {@code documentFormat: Raw}）；默认 {@code false} 为 Compact 信封。
      */
-    public static void enrichAndWriteClientExport(String fileName, byte[] utf8Json) throws Exception {
+    public static void enrichAndWriteClientExport(String fileName, byte[] utf8Json, boolean writeRaw) throws Exception {
         JsonParser parser = new JsonParser();
         JsonObject root = parser.parse(new String(utf8Json, StandardCharsets.UTF_8))
             .getAsJsonObject();
@@ -93,12 +96,18 @@ public final class MeshCaptureService {
             throw new IllegalStateException("Cannot mkdir: " + dir.getAbsolutePath());
         }
         File out = new File(dir, fileName);
-        com.google.gson.Gson gson = new com.google.gson.GsonBuilder().setPrettyPrinting()
-            .create();
         try (java.io.OutputStreamWriter w = new java.io.OutputStreamWriter(
             new java.io.FileOutputStream(out),
             StandardCharsets.UTF_8)) {
-            w.write(gson.toJson(root));
+            if (writeRaw) {
+                root.addProperty("documentFormat", "Raw");
+                com.google.gson.Gson gson = new com.google.gson.GsonBuilder().setPrettyPrinting()
+                    .create();
+                w.write(gson.toJson(root));
+            } else {
+                JsonObject envelope = SceneCompactJson.toCompactEnvelope(root);
+                w.write(new com.google.gson.Gson().toJson(envelope));
+            }
         }
     }
 

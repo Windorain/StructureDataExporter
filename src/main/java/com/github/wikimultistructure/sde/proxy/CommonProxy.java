@@ -16,7 +16,7 @@ public class CommonProxy implements IProxy {
     }
 
     @Override
-    public void enqueueMeshCapturePayload(String fileName, byte[] utf8Json) {
+    public void enqueueMeshCapturePayload(String fileName, byte[] utf8Json, boolean writeRaw) {
         // 仅客户端处理
     }
 }

@@ -17,9 +17,9 @@ public final class MeshCaptureClient {
 
     private MeshCaptureClient() {}
 
-    public static void enqueuePayload(String fileName, byte[] utf8Json) {
+    public static void enqueuePayload(String fileName, byte[] utf8Json, boolean writeRaw) {
         if (fileName != null && !fileName.isEmpty() && utf8Json != null && utf8Json.length > 0) {
-            PENDING.offer(new Payload(fileName, utf8Json));
+            PENDING.offer(new Payload(fileName, utf8Json, writeRaw));
         }
     }
 
@@ -30,7 +30,7 @@ public final class MeshCaptureClient {
             return;
         }
         try {
-            MeshCaptureService.enrichAndWriteClientExport(p.fileName, p.utf8Json);
+            MeshCaptureService.enrichAndWriteClientExport(p.fileName, p.utf8Json, p.writeRaw);
         } catch (Exception e) {
             FMLLog.severe("[SDE] mesh capture enrich failed: " + p.fileName + " — " + e.getMessage());
             e.printStackTrace();
@@ -41,10 +41,12 @@ public final class MeshCaptureClient {
 
         final String fileName;
         final byte[] utf8Json;
+        final boolean writeRaw;
 
-        Payload(String fileName, byte[] utf8Json) {
+        Payload(String fileName, byte[] utf8Json, boolean writeRaw) {
             this.fileName = fileName;
             this.utf8Json = utf8Json;
+            this.writeRaw = writeRaw;
         }
     }
 }

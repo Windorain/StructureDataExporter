@@ -53,10 +53,10 @@ public final class SdeNetwork {
     /**
      * 将场景 JSON 全文发给执行导出的玩家，由客户端捕获网格后写入本地 {@code structure_exports} 目录下对应文件名。
      */
-    public static void sendEnrichExportedScene(EntityPlayerMP player, String fileName, byte[] utf8Json) {
+    public static void sendEnrichExportedScene(EntityPlayerMP player, String fileName, byte[] utf8Json, boolean writeRaw) {
         if (channel == null || fileName == null || fileName.isEmpty() || utf8Json == null || utf8Json.length == 0) {
             return;
         }
-        channel.sendTo(new PacketEnrichExportedScene(fileName, utf8Json), player);
+        channel.sendTo(new PacketEnrichExportedScene(fileName, utf8Json, writeRaw), player);
     }
 }

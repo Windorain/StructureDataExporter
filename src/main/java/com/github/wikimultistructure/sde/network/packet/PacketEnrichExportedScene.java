@@ -14,12 +14,15 @@ public class PacketEnrichExportedScene implements IMessage {
 
     public String fileName;
     public byte[] utf8Json;
+    /** {@code true}：客户端落盘 Raw；{@code false}：Compact 信封（默认）。 */
+    public boolean writeRaw;
 
     public PacketEnrichExportedScene() {}
 
-    public PacketEnrichExportedScene(String fileName, byte[] utf8Json) {
+    public PacketEnrichExportedScene(String fileName, byte[] utf8Json, boolean writeRaw) {
         this.fileName = fileName;
         this.utf8Json = utf8Json;
+        this.writeRaw = writeRaw;
     }
 
     @Override
@@ -32,6 +35,7 @@ public class PacketEnrichExportedScene implements IMessage {
         }
         utf8Json = new byte[n];
         buf.readBytes(utf8Json);
+        writeRaw = buf.isReadable() && buf.readBoolean();
     }
 
     @Override
@@ -42,5 +46,6 @@ public class PacketEnrichExportedScene implements IMessage {
         if (n > 0) {
             buf.writeBytes(utf8Json);
         }
+        buf.writeBoolean(writeRaw);
     }
 }
