@@ -25,14 +25,26 @@ public final class SceneCompactJson {
         if (rawFinal.has("frames") && rawFinal.get("frames")
             .isJsonArray()) {
             copyIfPresent(rawFinal, meta, "id");
+            copyIfPresent(rawFinal, meta, "mode");
+            copyIfPresent(rawFinal, meta, "label");
+            copyIfPresent(rawFinal, meta, "author");
+            copyIfPresent(rawFinal, meta, "gtnhVersion");
+            copyIfPresent(rawFinal, meta, "description");
+            copyIfPresent(rawFinal, meta, "modSource");
             copyIfPresent(rawFinal, meta, "playback");
             copyIfPresent(rawFinal, meta, "globalConfig");
             copyIfPresent(rawFinal, meta, "schemaVersion");
             copyIfPresent(rawFinal, inner, "frames");
             copyIfPresent(rawFinal, inner, "textureBlobs");
         } else {
+            copyIfPresent(rawFinal, meta, "geometryPhase");
             copyIfPresent(rawFinal, meta, "mode");
             copyIfPresent(rawFinal, meta, "id");
+            copyIfPresent(rawFinal, meta, "label");
+            copyIfPresent(rawFinal, meta, "author");
+            copyIfPresent(rawFinal, meta, "gtnhVersion");
+            copyIfPresent(rawFinal, meta, "description");
+            copyIfPresent(rawFinal, meta, "modSource");
             copyIfPresent(rawFinal, meta, "globalConfig");
             copyIfPresent(rawFinal, meta, "source");
             copyIfPresent(rawFinal, meta, "axis");

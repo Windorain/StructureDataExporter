@@ -56,7 +56,7 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * Client-only：读取 {@code mode=voxelScan}，在客户端世界坐标下烘焙 BakedQuads，按几何指纹合并槽位，写出 {@code mode=voxelPalette}（无根级 {@code schemaVersion}，{@code blockPalette} 无 {@code tileNbtB64}）。
+ * Client-only：读取 {@code geometryPhase=scan}，在客户端世界坐标下烘焙 BakedQuads，按几何指纹合并槽位，写出 {@code geometryPhase=baked}（无根级 {@code schemaVersion}，{@code blockPalette} 无 {@code tileNbtB64}）。
  */
 @SideOnly(Side.CLIENT)
 public final class MeshCaptureService {
@@ -122,7 +122,7 @@ public final class MeshCaptureService {
     }
 
     /**
-     * 就地修改 root：单文件 {@code voxelScan} 或 World 文档内每一帧的 {@code structure} 均执行烘焙。
+     * 就地修改 root：单文件 {@code geometryPhase=scan} 或 World 文档内每一帧的 {@code structure} 均执行烘焙。
      */
     public static void finalizeStructureJson(JsonObject root) throws Exception {
         if (root.has("frames")) {
@@ -137,13 +137,13 @@ public final class MeshCaptureService {
             TextureBlobEmbedder.embedIntoDocument(root);
             return;
         }
-        if (root.has("mode") && "voxelScan".equals(root.get("mode")
+        if (root.has("geometryPhase") && "scan".equals(root.get("geometryPhase")
             .getAsString())) {
             finalizeSingleStructure(root);
             TextureBlobEmbedder.embedIntoDocument(root);
             return;
         }
-        if (root.has("mode") && "voxelPalette".equals(root.get("mode")
+        if (root.has("geometryPhase") && "baked".equals(root.get("geometryPhase")
             .getAsString()) && !root.has("textureBlobs")) {
             TextureBlobEmbedder.embedIntoDocument(root);
         }
@@ -153,12 +153,12 @@ public final class MeshCaptureService {
         if (structure == null || !structure.has("cellGrid")) {
             return;
         }
-        if (!structure.has("mode") || !"voxelScan".equals(structure.get("mode")
+        if (!structure.has("geometryPhase") || !"scan".equals(structure.get("geometryPhase")
             .getAsString())) {
             return;
         }
         if (!structure.has("cellTypes") || !structure.has("worldGrid")) {
-            throw new IllegalStateException("voxelScan finalize requires cellTypes and worldGrid.");
+            throw new IllegalStateException("geometryPhase=scan finalize requires cellTypes and worldGrid.");
         }
         structure.remove("capture");
         structure.remove("schemaVersion");
@@ -342,7 +342,7 @@ public final class MeshCaptureService {
         structure.add("blockPalette", blockPalette);
         structure.add("cellGrid", cellGridToJson(remapped));
         structure.add("materialPalette", samplers.toMaterialPalette());
-        structure.addProperty("mode", "voxelPalette");
+        structure.addProperty("geometryPhase", "baked");
         structure.remove("cellTypes");
         structure.remove("worldGrid");
     }

@@ -7,9 +7,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.world.World;
 
+import com.github.wikimultistructure.sde.core.export.PackVersionProbe;
 import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
@@ -18,9 +20,9 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonPrimitive;
 
 /**
- * 选区扫描 → 中间态 <strong>StructureData</strong>（{@code mode=voxelScan}）：仅逻辑 {@code cellTypes}、{@code cellGrid}、
+ * 选区扫描 → 中间态（{@code geometryPhase=scan}）：仅逻辑 {@code cellTypes}、{@code cellGrid}、
  * {@code worldGrid} 与世界 {@code scanBounds}，无几何、无 {@code blockPalette}。须由客户端
- * {@link com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureService} 烘焙为 {@code mode=voxelPalette}。
+ * {@link com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureService} 烘焙为 {@code geometryPhase=baked}。
  * <p>
  * 不写根级 {@code schemaVersion}；{@code cellTypes} 不写 {@code shellMaterialId}。
  */
@@ -29,7 +31,7 @@ public final class StructureScan {
     private StructureScan() {}
 
     public static JsonObject scanToStructureJson(World world, int minX, int minY, int minZ, int maxX, int maxY,
-        int maxZ, String structureId, IBlockSampler sampler) {
+        int maxZ, String structureId, IBlockSampler sampler, EntityPlayerMP authorPlayer) {
         int ax = Math.min(minX, maxX), bx = Math.max(minX, maxX);
         int ay = Math.min(minY, maxY), by = Math.max(minY, maxY);
         int az = Math.min(minZ, maxZ), bz = Math.max(minZ, maxZ);
@@ -65,8 +67,13 @@ public final class StructureScan {
         }
 
         JsonObject root = new JsonObject();
-        root.addProperty("mode", "voxelScan");
+        root.addProperty("geometryPhase", "scan");
+        root.addProperty("mode", "multiblock");
         root.addProperty("id", structureId);
+        root.addProperty("label", structureId);
+        root.addProperty("author", authorPlayer != null ? authorPlayer.getCommandSenderName() : "server");
+        root.addProperty("gtnhVersion", PackVersionProbe.tryPackVersionString());
+        root.add("description", JsonNull.INSTANCE);
         JsonObject src = new JsonObject();
         src.addProperty("note", "StructureDataExporter scan");
         root.add("source", src);

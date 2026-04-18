@@ -15,10 +15,12 @@ import com.github.wikimultistructure.sde.core.export.PendingDumpFiles;
 import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
 import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
 import com.github.wikimultistructure.sde.core.sampling.PolicyBackedBlockSampler;
+import com.github.wikimultistructure.sde.core.export.PackVersionProbe;
 import com.github.wikimultistructure.sde.core.scan.StructureScan;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -26,7 +28,7 @@ import com.google.gson.JsonParser;
  * 会话状态、选区、多帧缓冲与落盘（单向：世界 → 内存 JSON 串 → export 写文件）。
  * 默认 {@link IBlockSampler} 为 {@link PolicyBackedBlockSampler}；扫描产物 {@code cellTypes[].meta} 对 {@code gregtech:gt.blockmachines} 为 mID，见 {@link GregTechMetaTileRegistry}。
  * <p>
- * 写出文件时：<strong>单帧</strong>为 {@link StructureScan} 的中间态（{@code voxelScan}，须再经客户端 finalize）；<strong>多帧</strong>为 Wiki
+ * 写出文件时：<strong>单帧</strong>为 {@link StructureScan} 的中间态（{@code geometryPhase=scan}，须再经客户端 finalize）；<strong>多帧</strong>为 Wiki
  * {@code World} 文档（不写顶层 {@code schemaVersion}）。
  */
 public final class ExportSession {
@@ -51,6 +53,8 @@ public final class ExportSession {
     private int activeFrame;
     private final Map<Integer, String> frameJson = new TreeMap<>();
     private IBlockSampler sampler = new PolicyBackedBlockSampler();
+    private String lastAuthor = "server";
+    private String lastGtnhVersion = "";
 
     private ExportSession() {}
 
@@ -146,8 +150,10 @@ public final class ExportSession {
             throw new IllegalStateException("请先 /sde pos1 与 /sde pos2（对准方块）");
         }
         World world = player.worldObj;
+        lastAuthor = player.getCommandSenderName();
+        lastGtnhVersion = PackVersionProbe.tryPackVersionString();
         JsonObject obj = StructureScan
-            .scanToStructureJson(world, pos1x, pos1y, pos1z, pos2x, pos2y, pos2z, structureId, sampler);
+            .scanToStructureJson(world, pos1x, pos1y, pos1z, pos2x, pos2y, pos2z, structureId, sampler, player);
         frameJson.put(activeFrame, GSON.toJson(obj));
     }
 
@@ -171,6 +177,11 @@ public final class ExportSession {
         } else {
             JsonObject worldDocument = new JsonObject();
             worldDocument.addProperty("id", structureId);
+            worldDocument.addProperty("mode", "multiblock");
+            worldDocument.addProperty("label", structureId);
+            worldDocument.addProperty("author", lastAuthor);
+            worldDocument.addProperty("gtnhVersion", lastGtnhVersion);
+            worldDocument.add("description", JsonNull.INSTANCE);
             JsonArray frames = new JsonArray();
             JsonParser parser = new JsonParser();
             for (Map.Entry<Integer, String> e : frameJson.entrySet()) {
