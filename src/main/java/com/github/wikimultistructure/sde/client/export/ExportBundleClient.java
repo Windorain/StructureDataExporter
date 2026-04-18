@@ -202,8 +202,7 @@ public final class ExportBundleClient {
     /**
      * 若 locator 对应纹理存在则登记 material_registry 条目（不写入磁盘 assets）。
      */
-    private static void registerMaterialMetadataOnly(Minecraft mc, String locator, Map<String, JsonObject> materialsOut)
-        throws IOException {
+    private static void registerMaterialMetadataOnly(Minecraft mc, String locator, Map<String, JsonObject> materialsOut) {
         ResourceLocation texLoc = null;
         for (ResourceLocation candidate : ExportTextureLocator.texturePngResourceLocationsForBundle(locator)) {
             if (resourceExists(mc, candidate)) {
@@ -217,11 +216,46 @@ public final class ExportBundleClient {
 
         String texPath = texLoc.getResourcePath();
         ResourceLocation mcmetaLoc = new ResourceLocation(texLoc.getResourceDomain(), texPath + ".mcmeta");
-        if (!materialsOut.containsKey(locator)) {
-            JsonObject m = new JsonObject();
+
+        String kind = "static16";
+        JsonObject animationJson = null;
+        if (resourceExists(mc, mcmetaLoc)) {
+            try (InputStream in = mc.getResourceManager()
+                .getResource(mcmetaLoc)
+                .getInputStream()) {
+                String raw = readUtf8(in);
+                JsonObject root = new JsonParser().parse(raw)
+                    .getAsJsonObject();
+                animationJson = MaterialAnimationJson.fromMcmetaRoot(root);
+                if (animationJson != null) {
+                    kind = "animated";
+                } else if (raw.contains("\"animation\"")) {
+                    kind = "animated";
+                }
+            } catch (Exception ignored) {
+                /* 保持 static16；若仅能粗判则沿用旧启发 */
+                try (InputStream in2 = mc.getResourceManager()
+                    .getResource(mcmetaLoc)
+                    .getInputStream()) {
+                    String raw = readUtf8(in2);
+                    if (raw.contains("\"animation\"")) {
+                        kind = "animated";
+                    }
+                } catch (IOException ignored2) {
+                    /* ignore */
+                }
+            }
+        }
+
+        JsonObject m = materialsOut.get(locator);
+        if (m == null) {
+            m = new JsonObject();
             m.addProperty("locator", locator);
-            m.addProperty("kind", detectMaterialKind(mc, mcmetaLoc));
             materialsOut.put(locator, m);
+        }
+        m.addProperty("kind", kind);
+        if (animationJson != null) {
+            m.add("animation", animationJson);
         }
     }
 
@@ -233,23 +267,6 @@ public final class ExportBundleClient {
         } catch (IOException e) {
             return false;
         }
-    }
-
-    private static String detectMaterialKind(Minecraft mc, ResourceLocation mcmetaLoc) {
-        if (!resourceExists(mc, mcmetaLoc)) {
-            return "static16";
-        }
-        try (InputStream in = mc.getResourceManager()
-            .getResource(mcmetaLoc)
-            .getInputStream()) {
-            String raw = readUtf8(in);
-            if (raw.contains("\"animation\"")) {
-                return "animated";
-            }
-        } catch (IOException ignored) {
-            // ignore
-        }
-        return "static16";
     }
 
     private static void writeUtf8(File file, String content) throws IOException {

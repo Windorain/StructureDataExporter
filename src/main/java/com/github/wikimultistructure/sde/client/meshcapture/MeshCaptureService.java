@@ -35,6 +35,8 @@ import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureSt
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderContext;
+import com.github.wikimultistructure.sde.client.export.ExportTextureLocator;
+import com.github.wikimultistructure.sde.client.export.MaterialAnimationJson;
 import com.github.wikimultistructure.sde.client.export.SceneCompactJson;
 import com.github.wikimultistructure.sde.client.export.TextureBlobEmbedder;
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderRegistry;
@@ -646,7 +648,19 @@ public final class MeshCaptureService {
             if (kindMap == null || !(kindMap instanceof TextureMapAccessor)) {
                 kindMap = blocksTextureMap;
             }
-            s.addProperty("kind", inferMaterialKindForSprite(materialKey, kindMap));
+            String kind = inferMaterialKindForSprite(materialKey, kindMap);
+            s.addProperty("kind", kind);
+            if ("animated".equals(kind)) {
+                TextureAtlasSprite sprAnim = MaterialKeyResolver.findSpriteForMaterialKey(materialKey, kindMap);
+                String norm = ExportTextureLocator.normalizeLocatorForBundle(materialKey);
+                JsonObject anim = MaterialAnimationJson.tryResolveForMaterial(
+                    Minecraft.getMinecraft(),
+                    norm,
+                    sprAnim);
+                if (anim != null) {
+                    s.add("animation", anim);
+                }
+            }
             int i = list.size();
             list.add(s);
             indexByKey.put(cacheKey, i);
@@ -669,6 +683,9 @@ public final class MeshCaptureService {
                 }
                 if (s.has("useMipmaps")) {
                     m.add("useMipmaps", s.get("useMipmaps"));
+                }
+                if (s.has("animation")) {
+                    m.add("animation", s.get("animation"));
                 }
                 a.add(m);
             }
