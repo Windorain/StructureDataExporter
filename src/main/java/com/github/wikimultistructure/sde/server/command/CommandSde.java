@@ -6,13 +6,19 @@ import java.nio.file.Paths;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.event.ClickEvent;
+import net.minecraft.event.HoverEvent;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatStyle;
+import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.IChatComponent;
 import net.minecraft.util.MovingObjectPosition;
 
 import com.github.wikimultistructure.sde.core.session.ExportSession;
 import com.github.wikimultistructure.sde.core.util.RayTraceUtil;
 import com.github.wikimultistructure.sde.network.SdeNetwork;
 import com.github.wikimultistructure.sde.server.SdePermissions;
+import com.github.wikimultistructure.sde.server.web.SdeWebServer;
 
 public class CommandSde extends CommandBase {
 
@@ -23,7 +29,7 @@ public class CommandSde extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/sde <pos1|pos2|start|end|setName|setFrame|setStructureId|record|export [raw]|dump|status>";
+        return "/sde <pos1|pos2|start|end|setName|setFrame|setStructureId|record|export [raw]|dump|status|web [port]|webstop>";
     }
 
     @Override
@@ -100,6 +106,49 @@ public class CommandSde extends CommandBase {
                 case "status":
                     sender.addChatMessage(new ChatComponentText(s.statusLine()));
                     break;
+                case "web": {
+                    int port = 37564;
+                    if (args.length >= 2) {
+                        port = Integer.parseInt(args[1]);
+                    }
+                    String tok = java.util.UUID.randomUUID()
+                        .toString()
+                        .replace("-", "");
+                    SdeWebServer.start(port, tok);
+                    // 勿用 MinecraftServer.getServerHostname()/getHostname()：1.7.10 上为 @SideOnly(SERVER)，
+                    // 集成服客户端环境会 NoSuchMethodError。本机浏览器用回环即可；远程访问请自行换为机器局域网 IP。
+                    String host = "127.0.0.1";
+                    String base = "http://" + host + ":" + port;
+                    String workbenchUrl =
+                        base + "/?apiBase=" + java.net.URLEncoder.encode(base, "UTF-8") + "&token=" + tok;
+
+                    IChatComponent webLine = new ChatComponentText("");
+                    webLine.appendSibling(new ChatComponentText("SDE Web "));
+                    webLine.appendSibling(sdeClickableLink("[根地址]", base, "浏览器打开 " + base));
+                    webLine.appendSibling(new ChatComponentText("  "));
+                    webLine.appendSibling(sdeClickableLink("[工作台]", workbenchUrl, "浏览器打开工作台（含 token）"));
+                    sender.addChatMessage(webLine);
+
+                    IChatComponent tokLine = new ChatComponentText("");
+                    tokLine.appendSibling(new ChatComponentText("SDE Token（Bearer） "));
+                    ChatComponentText tokHover = new ChatComponentText("[悬停查看]");
+                    tokHover.setChatStyle(
+                        new ChatStyle()
+                            .setChatHoverEvent(
+                                new HoverEvent(
+                                    HoverEvent.Action.SHOW_TEXT,
+                                    new ChatComponentText("Authorization: Bearer " + tok + "\n\n全文：\n" + tok)))
+                            .setColor(EnumChatFormatting.GRAY));
+                    tokLine.appendSibling(tokHover);
+                    tokLine.appendSibling(new ChatComponentText(" "));
+                    tokLine.appendSibling(sdeSuggestToken("[填入聊天栏]", tok));
+                    sender.addChatMessage(tokLine);
+                    break;
+                }
+                case "webstop":
+                    SdeWebServer.stopServer();
+                    sender.addChatMessage(new ChatComponentText("SDE Web 已停止"));
+                    break;
                 default:
                     sender.addChatMessage(new ChatComponentText("未知子命令: " + sub));
                     sender.addChatMessage(new ChatComponentText(getCommandUsage(sender)));
@@ -161,5 +210,27 @@ public class CommandSde extends CommandBase {
     private static int parseIntRequired(String[] args, int i) {
         if (i >= args.length) throw new IllegalArgumentException("缺少整数参数");
         return Integer.parseInt(args[i]);
+    }
+
+    private static ChatComponentText sdeClickableLink(String label, String url, String hover) {
+        ChatComponentText t = new ChatComponentText(label);
+        t.setChatStyle(
+            new ChatStyle()
+                .setChatClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
+                .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(hover)))
+                .setUnderlined(true)
+                .setColor(EnumChatFormatting.AQUA));
+        return t;
+    }
+
+    private static ChatComponentText sdeSuggestToken(String label, String token) {
+        ChatComponentText t = new ChatComponentText(label);
+        t.setChatStyle(
+            new ChatStyle()
+                .setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, token))
+                .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("点击将 token 填入聊天栏")))
+                .setUnderlined(true)
+                .setColor(EnumChatFormatting.GREEN));
+        return t;
     }
 }
