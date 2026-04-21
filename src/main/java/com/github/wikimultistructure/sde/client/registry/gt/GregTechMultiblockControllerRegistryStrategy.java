@@ -17,7 +17,8 @@ public final class GregTechMultiblockControllerRegistryStrategy implements MetaT
 
     @Override
     public boolean matches(Block block, String registryId, int meta) {
-        if (!GregTechMetaTileRegistry.isGregTechBlockMachines(block, registryId) || !GregTechMetaTileRegistry.isMetaTileSlotRegistered(meta)) {
+        if (!GregTechMetaTileRegistry.isGregTechBlockMachines(block, registryId)
+            || !GregTechMetaTileRegistry.isMetaTileSlotRegistered(meta)) {
             return false;
         }
         Object mte = GregTechMetaTileRegistry.tryGetMetaTileEntity(meta);

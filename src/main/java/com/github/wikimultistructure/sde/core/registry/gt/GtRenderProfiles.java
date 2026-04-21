@@ -10,7 +10,10 @@ public final class GtRenderProfiles {
     /** 通用 MetaTile（机器/管道）默认纹理解析。 */
     public static final String DEFAULT = "default";
 
-    /** 多方块控制器（命中 {@link com.github.wikimultistructure.sde.client.registry.gt.GregTechMultiblockControllerRegistryStrategy}）。 */
+    /**
+     * 多方块控制器（命中
+     * {@link com.github.wikimultistructure.sde.client.registry.gt.GregTechMultiblockControllerRegistryStrategy}）。
+     */
     public static final String MULTIBLOCK_CONTROLLER = "gregtech.multiblock.controller";
 
     public static final String FRAME = "gregtech.frame";
@@ -23,7 +26,10 @@ public final class GtRenderProfiles {
 
     private GtRenderProfiles() {}
 
-    /** {@link com.github.wikimultistructure.sde.client.export.ExportTextureLocator} 是否走 MTE / {@code METATILEENTITIES} 路径。 */
+    /**
+     * {@link com.github.wikimultistructure.sde.client.export.ExportTextureLocator} 是否走 MTE / {@code METATILEENTITIES}
+     * 路径。
+     */
     public static boolean usesMetaTileEntityResolver(String renderProfile) {
         if (renderProfile == null) {
             return false;

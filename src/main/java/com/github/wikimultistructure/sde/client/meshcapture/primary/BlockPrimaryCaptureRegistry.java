@@ -42,8 +42,11 @@ public final class BlockPrimaryCaptureRegistry {
                     return;
                 }
             } catch (Throwable t) {
-                FMLLog.warning("[SDE] BlockPrimaryCaptureRegistry: strategy %s failed: %s", s.getClass()
-                    .getName(), t.getMessage());
+                FMLLog.warning(
+                    "[SDE] BlockPrimaryCaptureRegistry: strategy %s failed: %s",
+                    s.getClass()
+                        .getName(),
+                    t.getMessage());
             }
         }
     }

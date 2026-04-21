@@ -194,14 +194,16 @@ public final class GregTechMetaTileRegistry {
     }
 
     /**
-     * 与全量 dump、{@link com.github.wikimultistructure.sde.client.registry.gt.GtBlockMachinesRegistryPolicy} 使用同一判定：类 + 注册名。
+     * 与全量 dump、{@link com.github.wikimultistructure.sde.client.registry.gt.GtBlockMachinesRegistryPolicy} 使用同一判定：类 +
+     * 注册名。
      */
     public static boolean isGregTechBlockMachines(Block block, String registryId) {
         return REGISTRY_ID_GT_BLOCK_MACHINES.equals(registryId) && isBlockMachinesClass(block);
     }
 
     /**
-     * 从世界坐标读取 GT Tile 的 mID；失败时返回 {@code null}（调用方应回退 {@link com.github.wikimultistructure.sde.core.sampling.DefaultBlockSampler}）。
+     * 从世界坐标读取 GT Tile 的 mID；失败时返回 {@code null}（调用方应回退
+     * {@link com.github.wikimultistructure.sde.core.sampling.DefaultBlockSampler}）。
      */
     public static Integer tryGetMetaTileIdAt(World world, int x, int y, int z) {
         if (world == null) {
@@ -217,8 +219,11 @@ public final class GregTechMetaTileRegistry {
             return null;
         }
         try {
-            Class<?> igt = Class.forName(C_IGREG_TECH_TILE, false, te.getClass()
-                .getClassLoader());
+            Class<?> igt = Class.forName(
+                C_IGREG_TECH_TILE,
+                false,
+                te.getClass()
+                    .getClassLoader());
             if (!igt.isInstance(te)) {
                 return null;
             }
@@ -255,8 +260,11 @@ public final class GregTechMetaTileRegistry {
             return null;
         }
         try {
-            Class<?> it = Class.forName(C_ITURNABLE, false, te.getClass()
-                .getClassLoader());
+            Class<?> it = Class.forName(
+                C_ITURNABLE,
+                false,
+                te.getClass()
+                    .getClassLoader());
             if (!it.isInstance(te)) {
                 return null;
             }

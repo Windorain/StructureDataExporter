@@ -8,7 +8,8 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * GT 仓室：通过 GT5U {@code MTEHatch#getTexture}（侧面壳层）解析与 {@code material_registry} 一致的 locator，供 {@code palette.shellMaterialId}。
+ * GT 仓室：通过 GT5U {@code MTEHatch#getTexture}（侧面壳层）解析与 {@code material_registry} 一致的 locator，供
+ * {@code palette.shellMaterialId}。
  * 不使用邻格方块推断。
  */
 @SideOnly(Side.CLIENT)

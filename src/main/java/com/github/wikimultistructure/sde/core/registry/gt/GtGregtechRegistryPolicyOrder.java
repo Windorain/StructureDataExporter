@@ -18,26 +18,40 @@ import com.github.wikimultistructure.sde.core.registry.BlockRegistryWorldPolicy;
  * <li>{@link GtBlockClassWorldPolicy} — {@code BlockReinforced}</li>
  * <li>{@link GtBlockClassWorldPolicy} — {@code BlockCasingsAbstract}</li>
  * </ol>
- * 须与 {@link com.github.wikimultistructure.sde.client.registry.BlockRegistryPolicies} 中 GregTech 段顺序一致；完整列表（含 BartWorks）见
- * {@link com.github.wikimultistructure.sde.core.registry.AddonModsRegistryPolicyOrder}。profile 常量见 {@link GtRenderProfiles}。
+ * 须与 {@link com.github.wikimultistructure.sde.client.registry.BlockRegistryPolicies} 中 GregTech 段顺序一致；完整列表（含
+ * BartWorks）见
+ * {@link com.github.wikimultistructure.sde.core.registry.AddonModsRegistryPolicyOrder}。profile 常量见
+ * {@link GtRenderProfiles}。
  */
 public final class GtGregtechRegistryPolicyOrder {
 
     public static final GtBlockMachinesWorldPolicy MACHINES_WORLD = new GtBlockMachinesWorldPolicy();
 
-    public static final GtBlockClassWorldPolicy FRAME_WORLD = new GtBlockClassWorldPolicy("gregtech.common.blocks.BlockFrameBox");
-    public static final GtBlockClassWorldPolicy GLASS_WORLD = new GtBlockClassWorldPolicy("gregtech.common.blocks.BlockGlass1");
+    public static final GtBlockClassWorldPolicy FRAME_WORLD = new GtBlockClassWorldPolicy(
+        "gregtech.common.blocks.BlockFrameBox");
+    public static final GtBlockClassWorldPolicy GLASS_WORLD = new GtBlockClassWorldPolicy(
+        "gregtech.common.blocks.BlockGlass1");
     public static final GtBlockClassWorldPolicy GLASS_TINTED_WORLD = new GtBlockClassWorldPolicy(
         "gregtech.common.blocks.BlockTintedIndustrialGlass");
     public static final GtBlockClassWorldPolicy COIL_CYCLOTRON_WORLD = new GtBlockClassWorldPolicy(
         "gregtech.common.blocks.BlockCyclotronCoils");
-    public static final GtBlockClassWorldPolicy SHEET_METAL_WORLD = new GtBlockClassWorldPolicy("gregtech.common.blocks.BlockSheetMetal");
-    public static final GtBlockClassWorldPolicy REINFORCED_WORLD = new GtBlockClassWorldPolicy("gregtech.common.blocks.BlockReinforced");
+    public static final GtBlockClassWorldPolicy SHEET_METAL_WORLD = new GtBlockClassWorldPolicy(
+        "gregtech.common.blocks.BlockSheetMetal");
+    public static final GtBlockClassWorldPolicy REINFORCED_WORLD = new GtBlockClassWorldPolicy(
+        "gregtech.common.blocks.BlockReinforced");
     public static final GtBlockClassWorldPolicy CASING_SOLID_WORLD = new GtBlockClassWorldPolicy(
         "gregtech.common.blocks.BlockCasingsAbstract");
 
-    private static final List<BlockRegistryWorldPolicy> ORDERED_WORLD = Collections.unmodifiableList(Arrays.asList(MACHINES_WORLD,
-        FRAME_WORLD, GLASS_WORLD, GLASS_TINTED_WORLD, COIL_CYCLOTRON_WORLD, SHEET_METAL_WORLD, REINFORCED_WORLD, CASING_SOLID_WORLD));
+    private static final List<BlockRegistryWorldPolicy> ORDERED_WORLD = Collections.unmodifiableList(
+        Arrays.asList(
+            MACHINES_WORLD,
+            FRAME_WORLD,
+            GLASS_WORLD,
+            GLASS_TINTED_WORLD,
+            COIL_CYCLOTRON_WORLD,
+            SHEET_METAL_WORLD,
+            REINFORCED_WORLD,
+            CASING_SOLID_WORLD));
 
     private GtGregtechRegistryPolicyOrder() {}
 

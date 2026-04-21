@@ -31,23 +31,11 @@ public final class SdeAutomationConfig {
             "automation",
             "sde_automation_commands.txt",
             "相对 Minecraft mcDataDir 的指令文件路径；每行一条聊天命令（可写 sde status 或 /sde status）。空行与 # 开头行为注释。");
-        commandDelayTicks = cfg.getInt(
-            "commandDelayTicks",
-            "automation",
-            20,
-            0,
-            600,
-            "两条自动指令之间的间隔（tick）。");
-        exitGameAfterCommands = cfg.getBoolean(
-            "exitGameAfterCommands",
-            "automation",
-            true,
-            "指令队列全部执行完后是否调用 Minecraft.shutdown() 退出游戏。");
-        cleanupCommandFileAfterRun = cfg.getBoolean(
-            "cleanupCommandFileAfterRun",
-            "automation",
-            true,
-            "执行完后是否删除指令文件，避免下次误触发。");
+        commandDelayTicks = cfg.getInt("commandDelayTicks", "automation", 20, 0, 600, "两条自动指令之间的间隔（tick）。");
+        exitGameAfterCommands = cfg
+            .getBoolean("exitGameAfterCommands", "automation", true, "指令队列全部执行完后是否调用 Minecraft.shutdown() 退出游戏。");
+        cleanupCommandFileAfterRun = cfg
+            .getBoolean("cleanupCommandFileAfterRun", "automation", true, "执行完后是否删除指令文件，避免下次误触发。");
         if (cfg.hasChanged()) {
             cfg.save();
         }

@@ -15,8 +15,8 @@ import com.github.wikimultistructure.sde.core.export.PackVersionProbe;
 import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
 /**
@@ -90,8 +90,10 @@ public final class StructureScan {
                 try {
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
                     CompressedStreamTools.writeCompressed(s.tileNbt, baos);
-                    t.addProperty("tileNbtB64", Base64.getEncoder()
-                        .encodeToString(baos.toByteArray()));
+                    t.addProperty(
+                        "tileNbtB64",
+                        Base64.getEncoder()
+                            .encodeToString(baos.toByteArray()));
                 } catch (Exception ignored) {
                     /* 跳过无法序列化的 TE */
                 }

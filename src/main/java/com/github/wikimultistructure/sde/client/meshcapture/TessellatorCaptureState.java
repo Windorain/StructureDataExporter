@@ -11,10 +11,10 @@ import net.minecraft.util.ResourceLocation;
 
 import org.lwjgl.opengl.GL11;
 
-import cpw.mods.fml.common.FMLLog;
-
 import com.github.wikimultistructure.sde.client.meshcapture.finish.BlockCaptureFinishContext;
 import com.github.wikimultistructure.sde.client.meshcapture.finish.BlockCaptureFinishRegistry;
+
+import cpw.mods.fml.common.FMLLog;
 
 /**
  * 录制 {@link Tessellator#addVertex}：按当前 {@link Tessellator} draw mode 组批——{@code GL_QUADS} 每 4 顶点一面；
@@ -24,7 +24,10 @@ import com.github.wikimultistructure.sde.client.meshcapture.finish.BlockCaptureF
  * [0,1]³。变换两步：
  * <ol>
  * <li>减 Tessellator {@code setTranslation}：缓冲内 xyz = addVertex 入参 + (xOffset,yOffset,zOffset)（见 MCP Tessellator）。</li>
- * <li>按 {@link CaptureCoordinatePolicy} 与<strong>每个四边形</strong>的 AABB 选择减去的原点：已在 {@code [0,1]³}（容差内）的批次（典型 ISBRH）不减世界角；落在当前块体素 {@code [wx,wx+1]×…} 内的（如 Ender IO 电容库 TESR 面板与 {@code glTranslatef} 混用导致的世界坐标 Tessellator 顶点）减 {@code (wx,wy,wz)}；否则回退为该四边形 AABB 最小角。这样可避免「同一块内混有块局部与世界局部顶点」时全局 AABB 的 min 被拉成 0，导致大坐标顶点无法归一化（例：{@code eio2.json} 中 x≈511）。</li>
+ * <li>按 {@link CaptureCoordinatePolicy} 与<strong>每个四边形</strong>的 AABB 选择减去的原点：已在 {@code [0,1]³}（容差内）的批次（典型
+ * ISBRH）不减世界角；落在当前块体素 {@code [wx,wx+1]×…} 内的（如 Ender IO 电容库 TESR 面板与 {@code glTranslatef} 混用导致的世界坐标 Tessellator 顶点）减
+ * {@code (wx,wy,wz)}；否则回退为该四边形 AABB 最小角。这样可避免「同一块内混有块局部与世界局部顶点」时全局 AABB 的 min 被拉成 0，导致大坐标顶点无法归一化（例：{@code eio2.json} 中
+ * x≈511）。</li>
  * </ol>
  * 使用<strong>全局</strong> {@link Frame} 而非 {@link ThreadLocal}，以便 GTNH Angelica 等
  * {@code @ThreadSafeISBRH(perThread = true)} 在<strong>工作线程</strong>写入 Tessellator 时仍能命中录制状态。
@@ -40,8 +43,8 @@ public final class TessellatorCaptureState {
 
     private static final double BOUNDS_ASSERT_HI = 1.06;
 
-    private static final boolean ASSERT_BLOCK_LOCAL_BOUNDS = Boolean.parseBoolean(
-        System.getProperty("sde.assertBlockLocalBounds", "false"));
+    private static final boolean ASSERT_BLOCK_LOCAL_BOUNDS = Boolean
+        .parseBoolean(System.getProperty("sde.assertBlockLocalBounds", "false"));
 
     private TessellatorCaptureState() {}
 
@@ -50,13 +53,13 @@ public final class TessellatorCaptureState {
     }
 
     /**
-     * @param blockX/Y/Z 结构索引格（与 cellGrid 一致）
+     * @param blockX/Y/Z      结构索引格（与 cellGrid 一致）
      * @param worldBlockX/Y/Z 该格对应的世界方块角坐标（整数）
-     * @param captureBlock 当前烘焙的方块（可为 null，则策略仅依赖 registryKey/renderType）
-     * @param registryKey 与 palette 一致，如 {@code minecraft:stone}
+     * @param captureBlock    当前烘焙的方块（可为 null，则策略仅依赖 registryKey/renderType）
+     * @param registryKey     与 palette 一致，如 {@code minecraft:stone}
      */
-    public static void beginBlock(int blockX, int blockY, int blockZ, String instanceLabel, int worldBlockX, int worldBlockY,
-        int worldBlockZ, Block captureBlock, int blockMeta, int renderType, String registryKey) {
+    public static void beginBlock(int blockX, int blockY, int blockZ, String instanceLabel, int worldBlockX,
+        int worldBlockY, int worldBlockZ, Block captureBlock, int blockMeta, int renderType, String registryKey) {
         synchronized (CAPTURE) {
             Frame f = CAPTURE;
             f.blockX = blockX;
@@ -232,7 +235,13 @@ public final class TessellatorCaptureState {
             Frame f = CAPTURE;
             flushPartialQuad(f);
             BlockCaptureFinishRegistry.runAll(
-                new BlockCaptureFinishContext(f.registryKey, f.captureBlock, f.blockMeta, f.renderType, f.geometrySource, f.quadsForBlock));
+                new BlockCaptureFinishContext(
+                    f.registryKey,
+                    f.captureBlock,
+                    f.blockMeta,
+                    f.renderType,
+                    f.geometrySource,
+                    f.quadsForBlock));
             normalizeVerticesToBlockContract(f);
             f.active = false;
             target.x = f.blockX;
@@ -248,12 +257,8 @@ public final class TessellatorCaptureState {
         if (f.quadsForBlock.isEmpty()) {
             return;
         }
-        CaptureCoordinatePolicy.Kind kind = CaptureCoordinatePolicy.resolve(
-            f.captureBlock,
-            f.blockMeta,
-            f.renderType,
-            f.registryKey,
-            f.geometrySource);
+        CaptureCoordinatePolicy.Kind kind = CaptureCoordinatePolicy
+            .resolve(f.captureBlock, f.blockMeta, f.renderType, f.registryKey, f.geometrySource);
         CaptureCoordinatePolicy.logIfSpecialExtended(kind, f.registryKey);
 
         List<CapturedQuad> rebuilt = new ArrayList<>(f.quadsForBlock.size());
@@ -325,23 +330,9 @@ public final class TessellatorCaptureState {
             }
         }
         if (minX == Double.POSITIVE_INFINITY) {
-            return new double[] {
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0
-            };
+            return new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
         }
-        return new double[] {
-            minX,
-            minY,
-            minZ,
-            maxX,
-            maxY,
-            maxZ
-        };
+        return new double[] { minX, minY, minZ, maxX, maxY, maxZ };
     }
 
     /** 单个四边形去 Tessellator offset 后的 AABB：{@code [minX,minY,minZ,maxX,maxY,maxZ]}。 */
@@ -364,23 +355,9 @@ public final class TessellatorCaptureState {
             maxZ = Math.max(maxZ, z0);
         }
         if (minX == Double.POSITIVE_INFINITY) {
-            return new double[] {
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0
-            };
+            return new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
         }
-        return new double[] {
-            minX,
-            minY,
-            minZ,
-            maxX,
-            maxY,
-            maxZ
-        };
+        return new double[] { minX, minY, minZ, maxX, maxY, maxZ };
     }
 
     /**
@@ -388,42 +365,32 @@ public final class TessellatorCaptureState {
      */
     private static double[] resolveOriginForQuad(double[] bb, Frame f, CaptureCoordinatePolicy.Kind kind) {
         if (kind == CaptureCoordinatePolicy.Kind.ALREADY_BLOCK_LOCAL) {
-            return new double[] {
-                0.0,
-                0.0,
-                0.0
-            };
+            return new double[] { 0.0, 0.0, 0.0 };
         }
         final double tol = 0.08;
         double wx = f.worldBlockX;
         double wy = f.worldBlockY;
         double wz = f.worldBlockZ;
 
-        boolean inUnitCube = bb[0] >= -tol && bb[1] >= -tol && bb[2] >= -tol && bb[3] <= 1.0 + tol && bb[4] <= 1.0 + tol
+        boolean inUnitCube = bb[0] >= -tol && bb[1] >= -tol
+            && bb[2] >= -tol
+            && bb[3] <= 1.0 + tol
+            && bb[4] <= 1.0 + tol
             && bb[5] <= 1.0 + tol;
 
-        boolean inVoxelEnvelope = bb[0] >= wx - tol && bb[1] >= wy - tol && bb[2] >= wz - tol && bb[3] <= wx + 1.0 + tol
-            && bb[4] <= wy + 1.0 + tol && bb[5] <= wz + 1.0 + tol;
+        boolean inVoxelEnvelope = bb[0] >= wx - tol && bb[1] >= wy - tol
+            && bb[2] >= wz - tol
+            && bb[3] <= wx + 1.0 + tol
+            && bb[4] <= wy + 1.0 + tol
+            && bb[5] <= wz + 1.0 + tol;
 
         if (inUnitCube) {
-            return new double[] {
-                0.0,
-                0.0,
-                0.0
-            };
+            return new double[] { 0.0, 0.0, 0.0 };
         }
         if (inVoxelEnvelope) {
-            return new double[] {
-                wx,
-                wy,
-                wz
-            };
+            return new double[] { wx, wy, wz };
         }
-        return new double[] {
-            bb[0],
-            bb[1],
-            bb[2]
-        };
+        return new double[] { bb[0], bb[1], bb[2] };
     }
 
     /**
@@ -472,13 +439,25 @@ public final class TessellatorCaptureState {
         return "";
     }
 
-    private static void assertBlockLocalVertex(String registryKey, int renderType, CaptureCoordinatePolicy.Kind kind, double x,
-        double y, double z) {
-        if (x < BOUNDS_ASSERT_LO || y < BOUNDS_ASSERT_LO || z < BOUNDS_ASSERT_LO || x > BOUNDS_ASSERT_HI || y > BOUNDS_ASSERT_HI
+    private static void assertBlockLocalVertex(String registryKey, int renderType, CaptureCoordinatePolicy.Kind kind,
+        double x, double y, double z) {
+        if (x < BOUNDS_ASSERT_LO || y < BOUNDS_ASSERT_LO
+            || z < BOUNDS_ASSERT_LO
+            || x > BOUNDS_ASSERT_HI
+            || y > BOUNDS_ASSERT_HI
             || z > BOUNDS_ASSERT_HI) {
             FMLLog.warning(
-                "[SDE] assertBlockLocalBounds: vertex (" + x + "," + y + "," + z + ") outside [0,1] for " + registryKey
-                    + " renderType=" + renderType + " kind=" + kind);
+                "[SDE] assertBlockLocalBounds: vertex (" + x
+                    + ","
+                    + y
+                    + ","
+                    + z
+                    + ") outside [0,1] for "
+                    + registryKey
+                    + " renderType="
+                    + renderType
+                    + " kind="
+                    + kind);
         }
     }
 
@@ -490,8 +469,18 @@ public final class TessellatorCaptureState {
                 return;
             }
             String bindSnap = fr.lastBoundTextureKey != null ? fr.lastBoundTextureKey : "";
-            CapturedVertex cv =
-                new CapturedVertex(x, y, z, u, v, brightness, colorArgb, tessOffsetX, tessOffsetY, tessOffsetZ, bindSnap);
+            CapturedVertex cv = new CapturedVertex(
+                x,
+                y,
+                z,
+                u,
+                v,
+                brightness,
+                colorArgb,
+                tessOffsetX,
+                tessOffsetY,
+                tessOffsetZ,
+                bindSnap);
             fr.currentQuadVerts.add(cv);
             boolean triangleMode = tessellatorDrawMode == GL11.GL_TRIANGLES;
             int need = triangleMode ? 3 : 4;

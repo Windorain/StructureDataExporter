@@ -101,7 +101,8 @@ public final class MaterialKeyResolver {
     }
 
     /**
-     * 物品图集 {@link TextureMap#locationItemsTexture}；与方块图集并列存在于 {@link net.minecraft.client.renderer.texture.TextureManager}。
+     * 物品图集 {@link TextureMap#locationItemsTexture}；与方块图集并列存在于
+     * {@link net.minecraft.client.renderer.texture.TextureManager}。
      */
     public static TextureMap getTextureMapItems(Minecraft mc) {
         if (mc == null || mc.getTextureManager() == null) {
@@ -175,10 +176,7 @@ public final class MaterialKeyResolver {
         if (spr == null) {
             TextureMap items = getTextureMapItems(Minecraft.getMinecraft());
             TextureMap blocks = textureMap;
-            for (TextureMap tryMap : new TextureMap[] {
-                items,
-                blocks
-            }) {
+            for (TextureMap tryMap : new TextureMap[] { items, blocks }) {
                 if (!(tryMap instanceof TextureMapAccessor) || tryMap == activeAtlas) {
                     continue;
                 }
@@ -193,8 +191,7 @@ public final class MaterialKeyResolver {
             }
         }
         q.materialUsesStandaloneTexture = false;
-        if ("unknown".equals(materialKey) && hint != null && !hint.isEmpty()
-            && !isAtlasBindMaterialKey(hint)) {
+        if ("unknown".equals(materialKey) && hint != null && !hint.isEmpty() && !isAtlasBindMaterialKey(hint)) {
             materialKey = hint;
             spr = null;
             q.materialUsesStandaloneTexture = true;

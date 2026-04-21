@@ -11,11 +11,11 @@ import java.util.TreeMap;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
 
+import com.github.wikimultistructure.sde.core.export.PackVersionProbe;
 import com.github.wikimultistructure.sde.core.export.PendingDumpFiles;
 import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
 import com.github.wikimultistructure.sde.core.sampling.IBlockSampler;
 import com.github.wikimultistructure.sde.core.sampling.PolicyBackedBlockSampler;
-import com.github.wikimultistructure.sde.core.export.PackVersionProbe;
 import com.github.wikimultistructure.sde.core.scan.StructureScan;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -26,9 +26,11 @@ import com.google.gson.JsonParser;
 
 /**
  * 会话状态、选区、多帧缓冲与落盘（单向：世界 → 内存 JSON 串 → export 写文件）。
- * 默认 {@link IBlockSampler} 为 {@link PolicyBackedBlockSampler}；扫描产物 {@code cellTypes[].meta} 对 {@code gregtech:gt.blockmachines} 为 mID，见 {@link GregTechMetaTileRegistry}。
+ * 默认 {@link IBlockSampler} 为 {@link PolicyBackedBlockSampler}；扫描产物 {@code cellTypes[].meta} 对
+ * {@code gregtech:gt.blockmachines} 为 mID，见 {@link GregTechMetaTileRegistry}。
  * <p>
- * 写出文件时：<strong>单帧</strong>为 {@link StructureScan} 的中间态（{@code geometryPhase=scan}，须再经客户端 finalize）；<strong>多帧</strong>为 Wiki
+ * 写出文件时：<strong>单帧</strong>为 {@link StructureScan} 的中间态（{@code geometryPhase=scan}，须再经客户端
+ * finalize）；<strong>多帧</strong>为 Wiki
  * {@code World} 文档（不写顶层 {@code schemaVersion}）。
  */
 public final class ExportSession {

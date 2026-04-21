@@ -24,7 +24,9 @@ public class ClientProxy extends CommonProxy {
         FMLCommonHandler.instance()
             .bus()
             .register(new ExportBundleTickHandler());
-        FMLCommonHandler.instance().bus().register(new SdeClientAutomationTickHandler());
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new SdeClientAutomationTickHandler());
     }
 
     @Override

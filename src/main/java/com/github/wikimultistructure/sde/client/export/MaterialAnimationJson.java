@@ -20,7 +20,8 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * 与 Wiki {@code MaterialAnimationSpec} 对齐的 JSON：{@code defaultFrametimeTicks}、{@code frameSequence[].index|timeTicks}、{@code interpolate}。
+ * 与 Wiki {@code MaterialAnimationSpec} 对齐的
+ * JSON：{@code defaultFrametimeTicks}、{@code frameSequence[].index|timeTicks}、{@code interpolate}。
  * 优先自 {@code .png.mcmeta} 解析（可含 {@code interpolate}），否则回退 {@link AnimationMetadataSection}（与游戏运行时一致）。
  */
 @SideOnly(Side.CLIENT)
@@ -55,8 +56,10 @@ public final class MaterialAnimationJson {
         if (anim.has("interpolate") && anim.get("interpolate")
             .isJsonPrimitive()) {
             try {
-                out.addProperty("interpolate", anim.get("interpolate")
-                    .getAsBoolean());
+                out.addProperty(
+                    "interpolate",
+                    anim.get("interpolate")
+                        .getAsBoolean());
             } catch (Throwable ignored) {
                 /* skip */
             }
@@ -77,8 +80,10 @@ public final class MaterialAnimationJson {
                         continue;
                     }
                     JsonObject o = new JsonObject();
-                    o.addProperty("index", fo.get("index")
-                        .getAsInt());
+                    o.addProperty(
+                        "index",
+                        fo.get("index")
+                            .getAsInt());
                     if (fo.has("time")) {
                         JsonElement te = fo.get("time");
                         if (te.isJsonPrimitive() && te.getAsJsonPrimitive()

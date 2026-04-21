@@ -10,14 +10,17 @@ import com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry;
 
 /**
  * 单格采样结果，对应 Wiki palette 中一项（无 NBT 时默认实现）。
- * 对 {@code gregtech:gt.blockmachines}，{@link #meta} 为 GT5U MetaTile ID（mID），与 {@code block_registry} 键 {@code registryId@n} 对齐，见 {@link GregTechMetaTileRegistry}；
+ * 对 {@code gregtech:gt.blockmachines}，{@link #meta} 为 GT5U MetaTile ID（mID），与 {@code block_registry} 键
+ * {@code registryId@n} 对齐，见 {@link GregTechMetaTileRegistry}；
  * 其他方块为世界 block metadata（0–15）。
  * <p>
  * 可选 {@link #facing}：机器正面在世界中的外法线（Wiki {@code FaceName}，如 {@code -z}）；与 block_registry 以北为正面一致。
  * <p>
- * 可选 {@link #shellMaterialId}：GT 仓室（MTEHatch）在结构导出时由世界邻格解析的壳层材质 locator（与 {@code material_registry} 键一致）；非仓室或未解析时为 {@code null}。
+ * 可选 {@link #shellMaterialId}：GT 仓室（MTEHatch）在结构导出时由世界邻格解析的壳层材质 locator（与 {@code material_registry} 键一致）；非仓室或未解析时为
+ * {@code null}。
  * <p>
- * 可选 {@link #tileNbt}：扫描时该格 {@link net.minecraft.tileentity.TileEntity#writeToNBT} 的快照，供客户端网格捕获时在假 {@link net.minecraft.world.IBlockAccess} 上还原 TE（如 GT ISBR）。
+ * 可选 {@link #tileNbt}：扫描时该格 {@link net.minecraft.tileentity.TileEntity#writeToNBT} 的快照，供客户端网格捕获时在假
+ * {@link net.minecraft.world.IBlockAccess} 上还原 TE（如 GT ISBR）。
  */
 public final class VoxelSample {
 

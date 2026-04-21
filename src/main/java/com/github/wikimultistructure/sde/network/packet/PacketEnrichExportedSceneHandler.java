@@ -10,11 +10,11 @@ public class PacketEnrichExportedSceneHandler implements IMessageHandler<PacketE
 
     @Override
     public IMessage onMessage(PacketEnrichExportedScene message, MessageContext ctx) {
-        if (message.fileName != null && !message.fileName.isEmpty() && message.utf8Json != null && message.utf8Json.length > 0) {
-            StructureDataExporterMod.proxy.enqueueMeshCapturePayload(
-                message.fileName,
-                message.utf8Json,
-                message.writeRaw);
+        if (message.fileName != null && !message.fileName.isEmpty()
+            && message.utf8Json != null
+            && message.utf8Json.length > 0) {
+            StructureDataExporterMod.proxy
+                .enqueueMeshCapturePayload(message.fileName, message.utf8Json, message.writeRaw);
         }
         return null;
     }

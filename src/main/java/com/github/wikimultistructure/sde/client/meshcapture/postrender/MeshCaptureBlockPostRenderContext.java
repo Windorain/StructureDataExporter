@@ -26,15 +26,8 @@ public final class MeshCaptureBlockPostRenderContext {
     private TileEntity tileEntityResolved;
     private boolean tileEntityLookupDone;
 
-    public MeshCaptureBlockPostRenderContext(
-        World world,
-        int wx,
-        int wy,
-        int wz,
-        Block block,
-        int meta,
-        RenderBlocks renderBlocks,
-        float partialTicks) {
+    public MeshCaptureBlockPostRenderContext(World world, int wx, int wy, int wz, Block block, int meta,
+        RenderBlocks renderBlocks, float partialTicks) {
         this.world = world;
         this.wx = wx;
         this.wy = wy;

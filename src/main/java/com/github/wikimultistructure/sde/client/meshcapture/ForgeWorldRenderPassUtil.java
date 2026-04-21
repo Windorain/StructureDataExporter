@@ -26,11 +26,7 @@ public final class ForgeWorldRenderPassUtil {
      * 必须与 {@code ForgeHooksClient#getWorldRenderPass()} 读写的字段一致（1.7.10 Forge 为 {@code worldRenderPass}）。
      * 不能优先匹配 {@code renderPass}：该字段由 {@code setRenderPass} 使用，与区块多 pass 无关。
      */
-    private static final String[] FIELD_CANDIDATES = {
-        "worldRenderPass",
-        "forgeBlockRenderPass",
-        "forgeRenderPass"
-    };
+    private static final String[] FIELD_CANDIDATES = { "worldRenderPass", "forgeBlockRenderPass", "forgeRenderPass" };
 
     private static ResolveState state = ResolveState.UNRESOLVED;
     private static Field passField;
@@ -48,7 +44,9 @@ public final class ForgeWorldRenderPassUtil {
         }
         state = ResolveState.ABSENT;
         try {
-            Class<?> fh = Class.forName("net.minecraftforge.client.ForgeHooksClient", false,
+            Class<?> fh = Class.forName(
+                "net.minecraftforge.client.ForgeHooksClient",
+                false,
                 ForgeWorldRenderPassUtil.class.getClassLoader());
             for (String n : FIELD_CANDIDATES) {
                 Field f = fh.getDeclaredField(n);

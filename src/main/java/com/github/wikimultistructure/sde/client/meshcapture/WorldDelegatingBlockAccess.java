@@ -5,17 +5,18 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.BiomeGenBase;
-
 import net.minecraftforge.common.util.ForgeDirection;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * 结构索引坐标 {@code (x,y,z)} 与 {@link com.github.wikimultistructure.sde.core.scan.StructureScan} / {@code MeshCaptureService} 循环一致；
+ * 结构索引坐标 {@code (x,y,z)} 与 {@link com.github.wikimultistructure.sde.core.scan.StructureScan} /
+ * {@code MeshCaptureService} 循环一致；
  * 映射到世界格后委托 {@link World}。查询<strong>不限制</strong>在 cellGrid 体积内：邻格用真实世界坐标查询。
  * <p>
- * AE2 {@code CableRenderHelper} / {@code PartCable#renderStatic} 向 {@link RenderBlocks} 传入的是 {@code TileEntity} 的<strong>世界</strong>
+ * AE2 {@code CableRenderHelper} / {@code PartCable#renderStatic} 向 {@link RenderBlocks} 传入的是 {@code TileEntity}
+ * 的<strong>世界</strong>
  * 坐标；若对本类一律做 {@link #structToWorld}，会把世界坐标误当结构索引再映射，导致几何为 0（运行时可见 {@code rawVertexCount==0}）。
  * 约定：仅当 {@code (x,y,z)} 落在结构体索引包围盒内时按结构坐标映射，否则视为已是世界坐标并直接查 {@link World}。
  */

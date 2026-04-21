@@ -24,13 +24,8 @@ public final class BlockCaptureFinishContext {
     private final CaptureGeometrySource geometrySource;
     private final List<CapturedQuad> quads;
 
-    public BlockCaptureFinishContext(
-        String registryKey,
-        Block captureBlock,
-        int blockMeta,
-        int renderType,
-        CaptureGeometrySource geometrySource,
-        List<CapturedQuad> quads) {
+    public BlockCaptureFinishContext(String registryKey, Block captureBlock, int blockMeta, int renderType,
+        CaptureGeometrySource geometrySource, List<CapturedQuad> quads) {
         this.registryKey = registryKey != null ? registryKey : "";
         this.captureBlock = captureBlock;
         this.blockMeta = blockMeta;

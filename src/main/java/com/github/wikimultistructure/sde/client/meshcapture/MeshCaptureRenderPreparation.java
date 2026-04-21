@@ -13,10 +13,13 @@ import cpw.mods.fml.relauncher.SideOnly;
 /**
  * 离屏网格捕获与「正常世界方块渲染管线」的差异整理（<strong>与具体模组无关的共性</strong>）：
  * <ol>
- * <li><strong>坐标语义</strong>：捕获循环使用结构索引格，{@link net.minecraft.world.IBlockAccess} 包装器必须同时支持「结构格 → 世界」与「已是世界格」的查询（见 {@link WorldDelegatingBlockAccess}）。任意在 ISBRH 里用 TE
+ * <li><strong>坐标语义</strong>：捕获循环使用结构索引格，{@link net.minecraft.world.IBlockAccess} 包装器必须同时支持「结构格 → 世界」与「已是世界格」的查询（见
+ * {@link WorldDelegatingBlockAccess}）。任意在 ISBRH 里用 TE
  * 世界坐标查块的实现都会踩同一类问题。</li>
  * <li><strong>渲染状态生命周期</strong>：世界里渲染一块方块前，往往已经过渲染 pass、区块构建器、方块自身的 {@code canRenderInPass} 等对客户端状态的写入。捕获路径若只调用
- * {@link RenderBlocks#renderBlockByRenderType}，则<strong>不会自动</strong>执行这些前置步骤。凡把几何委托到<strong>另一份</strong>{@link RenderBlocks}（例如 {@code ThreadLocal} 单例）并在其上维护「是否允许画」之类状态的 ISBRH，在离屏调用时可能出现主线程 {@link net.minecraft.client.renderer.Tessellator} 始终收不到顶点——这是<strong>管线缺口</strong>，不是某一方块 ID 的特例逻辑。</li>
+ * {@link RenderBlocks#renderBlockByRenderType}，则<strong>不会自动</strong>执行这些前置步骤。凡把几何委托到<strong>另一份</strong>{@link RenderBlocks}（例如
+ * {@code ThreadLocal} 单例）并在其上维护「是否允许画」之类状态的 ISBRH，在离屏调用时可能出现主线程 {@link net.minecraft.client.renderer.Tessellator}
+ * 始终收不到顶点——这是<strong>管线缺口</strong>，不是某一方块 ID 的特例逻辑。</li>
  * </ol>
  * 本类在每次捕获绘制前运行已注册的 {@link Hook}，用于补上与「当前主 {@link RenderBlocks}」相关的、可安全重复的初始化；具体模组若仍不满足，可再注册自定义 Hook（或向本仓库贡献通用探测逻辑）。
  */
@@ -57,7 +60,8 @@ public final class MeshCaptureRenderPreparation {
     }
 
     /**
-     * 内置 Hook：反射探测「委托到 ThreadLocal {@link RenderBlocks} 且依赖渲染 pass 状态」的常见实现；若相关类存在则同步 pass、全侧面与 blockAccess。未安装对应模组时为空操作。
+     * 内置 Hook：反射探测「委托到 ThreadLocal {@link RenderBlocks} 且依赖渲染 pass 状态」的常见实现；若相关类存在则同步 pass、全侧面与
+     * blockAccess。未安装对应模组时为空操作。
      */
     private static final class ReflectiveThreadLocalRenderBlocksStateHook implements Hook {
 
@@ -98,7 +102,8 @@ public final class MeshCaptureRenderPreparation {
                         Object delegateRb = busRendererGetRendererMethod.invoke(delegateRendererOwner);
                         if (delegateRb != null) {
                             renderBlocksRenderAllFacesField.setBoolean(delegateRb, true);
-                            if (primary != null && primary.blockAccess != null && renderBlocksBlockAccessField != null) {
+                            if (primary != null && primary.blockAccess != null
+                                && renderBlocksBlockAccessField != null) {
                                 try {
                                     renderBlocksBlockAccessField.set(delegateRb, primary.blockAccess);
                                 } catch (Throwable ignored) {

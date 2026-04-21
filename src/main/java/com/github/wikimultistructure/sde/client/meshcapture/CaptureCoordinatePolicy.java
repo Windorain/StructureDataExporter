@@ -31,7 +31,7 @@ public final class CaptureCoordinatePolicy {
     private CaptureCoordinatePolicy() {}
 
     /**
-     * @param registryKey {@code VoxelSample.registryId}，如 {@code minecraft:stone}
+     * @param registryKey    {@code VoxelSample.registryId}，如 {@code minecraft:stone}
      * @param geometrySource 几何来自主路径、库存回退或 TESR post（当前仅库存回退影响日志；TESR 与主路径同属默认归一化）。
      */
     public static Kind resolve(Block block, int meta, int renderType, String registryKey,
@@ -70,8 +70,9 @@ public final class CaptureCoordinatePolicy {
 
     static void logIfSpecialExtended(Kind kind, String registryKey) {
         if (kind == Kind.SPECIAL_EXTENDED) {
-            FMLLog.fine("[SDE] SPECIAL_EXTENDED geometry (placeholder) for " + registryKey
-                + " — currently same as DEFAULT_WORLD_CORNER");
+            FMLLog.fine(
+                "[SDE] SPECIAL_EXTENDED geometry (placeholder) for " + registryKey
+                    + " — currently same as DEFAULT_WORLD_CORNER");
         }
     }
 }

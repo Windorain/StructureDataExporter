@@ -24,8 +24,10 @@ import cpw.mods.fml.relauncher.SideOnly;
  * 解析出 locator 字符串（形态与 {@link IIcon#getIconName()} 一致：{@code ns:path}，无 {@code textures/}、无 {@code .png}）。
  * {@code mId} 为 MetaTile ID（表下标），不是世界 4bit block metadata。
  * <p>
- * <b>在数据流中的位置</b>：仅被 {@link ExportTextureLocator#resolve} 在 {@link com.github.wikimultistructure.sde.core.registry.gt.GtRenderProfiles#usesMetaTileEntityResolver(String)}
- * 为真的分支调用；本类只产出与 {@link IIcon#getIconName()} 同形态的原始 {@code ns:path}，<b>规范化仅在</b> {@link ExportTextureLocator#resolve} 内调用
+ * <b>在数据流中的位置</b>：仅被 {@link ExportTextureLocator#resolve} 在
+ * {@link com.github.wikimultistructure.sde.core.registry.gt.GtRenderProfiles#usesMetaTileEntityResolver(String)}
+ * 为真的分支调用；本类只产出与 {@link IIcon#getIconName()} 同形态的原始 {@code ns:path}，<b>规范化仅在</b> {@link ExportTextureLocator#resolve}
+ * 内调用
  * {@link ExportTextureLocator#normalizeLocatorForBundle} 一次完成。
  * <p>
  * <b>假设</b>：MTE 对方块渲染的纹理与 {@link ExportTextureLocator} 的「方块图集」假设一致；解析自 {@link IIcon} / {@code mIconName} /
@@ -45,7 +47,7 @@ public final class GtTextureResolver {
 
     /**
      * 仓室侧面壳层材质：与 GT5U {@code MTEHatch#getTexture} 在 {@code side != aFacing} 时返回的 {@code background} 一致
-     *（{@code texturePage/textureIndex} 或 {@code MACHINE_CASINGS[mTier]}）。
+     * （{@code texturePage/textureIndex} 或 {@code MACHINE_CASINGS[mTier]}）。
      * <p>
      * 必须使用<strong>世界 Tile 上的</strong> {@code IMetaTileEntity} 实例（含多方块
      * {@code updateTexture} 后的状态），不得使用 {@code GregTechAPI.METATILEENTITIES[mId]} 原型。
@@ -66,8 +68,11 @@ public final class GtTextureResolver {
             return null;
         }
         try {
-            Class<?> igt = Class.forName(C_IGREG_TECH_TILE, false, te.getClass()
-                .getClassLoader());
+            Class<?> igt = Class.forName(
+                C_IGREG_TECH_TILE,
+                false,
+                te.getClass()
+                    .getClassLoader());
             if (!igt.isInstance(te)) {
                 return null;
             }
@@ -76,8 +81,11 @@ public final class GtTextureResolver {
             if (mte == null) {
                 return null;
             }
-            Class<?> hatchClass = Class.forName(C_MTE_HATCH, false, mte.getClass()
-                .getClassLoader());
+            Class<?> hatchClass = Class.forName(
+                C_MTE_HATCH,
+                false,
+                mte.getClass()
+                    .getClassLoader());
             if (!hatchClass.isInstance(mte)) {
                 return null;
             }
@@ -109,8 +117,11 @@ public final class GtTextureResolver {
 
     private static ForgeDirection getFrontFacingForgeFromTile(TileEntity te) {
         try {
-            Class<?> it = Class.forName(C_ITURNABLE, false, te.getClass()
-                .getClassLoader());
+            Class<?> it = Class.forName(
+                C_ITURNABLE,
+                false,
+                te.getClass()
+                    .getClassLoader());
             if (!it.isInstance(te)) {
                 return ForgeDirection.NORTH;
             }
@@ -149,10 +160,13 @@ public final class GtTextureResolver {
     }
 
     /**
-     * @param mId               GT5U MetaTile ID（{@code METATILEENTITIES} 下标），与 {@code block_registry} 键 {@code gregtech:gt.blockmachines@n} 中 {@code n} 一致
-     * @param sampleSideOrdinal 与 {@link Block#getIcon(int, int)} 的 side 序数一致（见 {@link ExportTextureLocator#DEFAULT_SAMPLE_SIDE}）
+     * @param mId               GT5U MetaTile ID（{@code METATILEENTITIES} 下标），与 {@code block_registry} 键
+     *                          {@code gregtech:gt.blockmachines@n} 中 {@code n} 一致
+     * @param sampleSideOrdinal 与 {@link Block#getIcon(int, int)} 的 side 序数一致（见
+     *                          {@link ExportTextureLocator#DEFAULT_SAMPLE_SIDE}）
      * @param facing            传入 MTE#getTexture 的朝向参数，常用 {@link ForgeDirection#NORTH}
-     * @return 原始 {@code ns:path}（无 {@code .png}），尚未 {@link ExportTextureLocator#normalizeLocatorForBundle}；失败时 {@code null}。
+     * @return 原始 {@code ns:path}（无 {@code .png}），尚未 {@link ExportTextureLocator#normalizeLocatorForBundle}；失败时
+     *         {@code null}。
      *         仅 {@link ExportTextureLocator#resolve} 应作为对外入口并负责规范化。
      */
     public static String tryMetaTileEntityLocator(int mId, int sampleSideOrdinal, ForgeDirection facing) {
@@ -205,8 +219,8 @@ public final class GtTextureResolver {
      * <p>
      * 用于多方块主机：{@code side == machineFacing} 时 GT 常在正面返回 [外壳, 正面镂空 overlay, glow] 等多层。
      *
-     * @param side            采样立方体面（与 GT {@code getTexture} 的 {@code side} 一致）
-     * @param machineFacing   机器正面朝向（与 GT {@code aFacing} 一致）
+     * @param side          采样立方体面（与 GT {@code getTexture} 的 {@code side} 一致）
+     * @param machineFacing 机器正面朝向（与 GT {@code aFacing} 一致）
      * @return 非空层列表；无法解析时为空列表（非 {@code null}）
      */
     public static List<String> tryMetaTileEntityLayerLocatorsNormalized(int mId, ForgeDirection side,
@@ -286,8 +300,8 @@ public final class GtTextureResolver {
         return null;
     }
 
-    private static Object[] invokeGetTextureMachine(Object mte, Object stub, ForgeDirection side,
-        ForgeDirection facing, int colorIndex, ClassLoader cl) {
+    private static Object[] invokeGetTextureMachine(Object mte, Object stub, ForgeDirection side, ForgeDirection facing,
+        int colorIndex, ClassLoader cl) {
         try {
             Method m = findMachineGetTextureMethod(mte.getClass());
             if (m == null) {
@@ -536,8 +550,10 @@ public final class GtTextureResolver {
     }
 
     /**
-     * GregTech {@code IIconContainer}：优先 {@link IIcon#getIconName()} 语义；否则反射 {@code mIconName}；再否则 {@code getTextureFile()} 非图集路径。
-     * 返回原始 {@code ns:path}，由 {@link ExportTextureLocator#resolve} 统一 {@link ExportTextureLocator#normalizeLocatorForBundle}。
+     * GregTech {@code IIconContainer}：优先 {@link IIcon#getIconName()} 语义；否则反射 {@code mIconName}；再否则
+     * {@code getTextureFile()} 非图集路径。
+     * 返回原始 {@code ns:path}，由 {@link ExportTextureLocator#resolve} 统一
+     * {@link ExportTextureLocator#normalizeLocatorForBundle}。
      */
     private static String locatorFromGtIconContainer(Object iconContainer) {
         if (iconContainer == null) {
@@ -585,9 +601,11 @@ public final class GtTextureResolver {
     }
 
     /**
-     * 将 {@code IIconContainer#getTextureFile()} 的绝对资源路径转为 {@code ns:path}；若为图集占位（{@code textures/atlas/...}）则无独立 PNG，返回 null。
+     * 将 {@code IIconContainer#getTextureFile()} 的绝对资源路径转为 {@code ns:path}；若为图集占位（{@code textures/atlas/...}）则无独立 PNG，返回
+     * null。
      * <p>
-     * <b>假设</b>：非 atlas 时去掉 {@code textures/} 与 {@code .png} 后缀；{@code blocks/} / {@code items/} 由 {@link ExportTextureLocator#normalizeLocatorForBundle} 补全。
+     * <b>假设</b>：非 atlas 时去掉 {@code textures/} 与 {@code .png} 后缀；{@code blocks/} / {@code items/} 由
+     * {@link ExportTextureLocator#normalizeLocatorForBundle} 补全。
      */
     private static String locatorFromResourceLocationIfFileTexture(ResourceLocation rl) {
         if (rl == null) {

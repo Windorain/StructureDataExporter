@@ -21,7 +21,8 @@ import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureSt
  * 非 TESR：编译后仅 glCallList 时强制失效 display list，使顶点重新进入 Tessellator（库存/其它路径）。
  * <p>
  * 动态扩展（{@link TessellatorCaptureState#isDynamicExtensionVertexRecording()}）：{@link ModelRenderer#render} 在方法开头就
- * {@link ModelRenderer#compileDisplayList}，此时尚未应用 rotationPoint/旋转；若在此时录顶点，箱盖/箱体/锁扣会共用一个错误的局部原点而重合。处理方式：跳过真实编译（生成空 display list）、在 {@code glCallList} 处以当前矩阵内联
+ * {@link ModelRenderer#compileDisplayList}，此时尚未应用 rotationPoint/旋转；若在此时录顶点，箱盖/箱体/锁扣会共用一个错误的局部原点而重合。处理方式：跳过真实编译（生成空
+ * display list）、在 {@code glCallList} 处以当前矩阵内联
  * {@link ModelBox#render}，并由 {@link MixinTessellatorCapture} 做 {@code inv(M0)*M_now} 顶点变换以对齐块烘焙。
  */
 @Mixin(ModelRenderer.class)

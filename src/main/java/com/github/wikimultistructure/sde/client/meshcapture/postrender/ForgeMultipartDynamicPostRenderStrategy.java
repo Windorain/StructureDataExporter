@@ -83,7 +83,14 @@ public final class ForgeMultipartDynamicPostRenderStrategy implements MeshCaptur
             if (part == null) {
                 continue;
             }
-            anyPart |= invokeAnyRenderDynamic3(part, collectRenderDynamic3Methods(part.getClass()), wx, wy, wz, frame, 0);
+            anyPart |= invokeAnyRenderDynamic3(
+                part,
+                collectRenderDynamic3Methods(part.getClass()),
+                wx,
+                wy,
+                wz,
+                frame,
+                0);
         }
         if (!anyPart) {
             FMLLog.warning("[SDE] ForgeMultipartDynamic: no renderDynamic succeeded (tile + parts)");
@@ -91,9 +98,15 @@ public final class ForgeMultipartDynamicPostRenderStrategy implements MeshCaptur
     }
 
     private static void prepareMultipartDynamicEnvironment(TileEntity te) {
-        Class<?> ccrClass = loadClass(CC_RENDER_STATE, te.getClass().getClassLoader());
+        Class<?> ccrClass = loadClass(
+            CC_RENDER_STATE,
+            te.getClass()
+                .getClassLoader());
         if (ccrClass == null) {
-            ccrClass = loadClass(CC_RENDER_STATE, Thread.currentThread().getContextClassLoader());
+            ccrClass = loadClass(
+                CC_RENDER_STATE,
+                Thread.currentThread()
+                    .getContextClassLoader());
         }
         if (ccrClass == null) {
             ccrClass = loadClass(CC_RENDER_STATE, ForgeMultipartDynamicPostRenderStrategy.class.getClassLoader());
@@ -103,9 +116,12 @@ public final class ForgeMultipartDynamicPostRenderStrategy implements MeshCaptur
             return;
         }
         try {
-            Object inst = ccrClass.getMethod("instance").invoke(null);
-            ccrClass.getMethod("resetInstance").invoke(inst);
-            ccrClass.getMethod("pullLightmapInstance").invoke(inst);
+            Object inst = ccrClass.getMethod("instance")
+                .invoke(null);
+            ccrClass.getMethod("resetInstance")
+                .invoke(inst);
+            ccrClass.getMethod("pullLightmapInstance")
+                .invoke(inst);
             java.lang.reflect.Field useNormals = ccrClass.getField("useNormals");
             useNormals.setBoolean(inst, true);
         } catch (Throwable t) {
@@ -126,11 +142,13 @@ public final class ForgeMultipartDynamicPostRenderStrategy implements MeshCaptur
 
     private static void tryUpdateRenderCache(TileEntity te) {
         try {
-            Method m = te.getClass().getMethod("updateRenderCache");
+            Method m = te.getClass()
+                .getMethod("updateRenderCache");
             m.invoke(te);
         } catch (Throwable t1) {
             try {
-                Method m = te.getClass().getDeclaredMethod("updateRenderCache");
+                Method m = te.getClass()
+                    .getDeclaredMethod("updateRenderCache");
                 m.setAccessible(true);
                 m.invoke(te);
             } catch (Throwable ignored) {
@@ -179,7 +197,8 @@ public final class ForgeMultipartDynamicPostRenderStrategy implements MeshCaptur
         Class<?>[] p = m.getParameterTypes();
         StringBuilder sb = new StringBuilder();
         for (Class<?> t : p) {
-            sb.append(t.getName()).append(';');
+            sb.append(t.getName())
+                .append(';');
         }
         return sb.toString();
     }
@@ -255,10 +274,8 @@ public final class ForgeMultipartDynamicPostRenderStrategy implements MeshCaptur
             if (resolved) {
                 return;
             }
-            ClassLoader[] loaders = new ClassLoader[] {
-                Thread.currentThread().getContextClassLoader(),
-                ForgeMultipartDynamicPostRenderStrategy.class.getClassLoader(),
-            };
+            ClassLoader[] loaders = new ClassLoader[] { Thread.currentThread()
+                .getContextClassLoader(), ForgeMultipartDynamicPostRenderStrategy.class.getClassLoader(), };
             for (ClassLoader cl : loaders) {
                 if (cl == null) {
                     continue;
@@ -317,10 +334,12 @@ public final class ForgeMultipartDynamicPostRenderStrategy implements MeshCaptur
 
     private static void addAllFromScalaSeq(List<Object> out, Object seq) {
         try {
-            Method sizeM = seq.getClass().getMethod("size");
+            Method sizeM = seq.getClass()
+                .getMethod("size");
             int n = ((Number) sizeM.invoke(seq)).intValue();
             Method applyM = null;
-            for (Method m : seq.getClass().getMethods()) {
+            for (Method m : seq.getClass()
+                .getMethods()) {
                 if (!"apply".equals(m.getName()) || m.getParameterTypes().length != 1) {
                     continue;
                 }
@@ -343,7 +362,8 @@ public final class ForgeMultipartDynamicPostRenderStrategy implements MeshCaptur
 
     private static Object tryInvokeNoArgs(Object target, String name) {
         try {
-            Method m = target.getClass().getMethod(name);
+            Method m = target.getClass()
+                .getMethod(name);
             return m.invoke(target);
         } catch (Throwable ignored) {
             return null;

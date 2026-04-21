@@ -10,7 +10,8 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * 按 {@link BlockCaptureFinishStrategy#priority()} 升序，对全部 {@code applies} 为 true 的策略依次 {@link BlockCaptureFinishStrategy#finish}。
+ * 按 {@link BlockCaptureFinishStrategy#priority()} 升序，对全部 {@code applies} 为 true 的策略依次
+ * {@link BlockCaptureFinishStrategy#finish}。
  */
 @SideOnly(Side.CLIENT)
 public final class BlockCaptureFinishRegistry {
@@ -37,8 +38,11 @@ public final class BlockCaptureFinishRegistry {
                     s.finish(ctx);
                 }
             } catch (Throwable t) {
-                FMLLog.warning("[SDE] BlockCaptureFinishRegistry: strategy %s failed: %s", s.getClass()
-                    .getName(), t.getMessage());
+                FMLLog.warning(
+                    "[SDE] BlockCaptureFinishRegistry: strategy %s failed: %s",
+                    s.getClass()
+                        .getName(),
+                    t.getMessage());
             }
         }
     }

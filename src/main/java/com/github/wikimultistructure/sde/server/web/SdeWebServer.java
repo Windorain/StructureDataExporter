@@ -103,8 +103,9 @@ public final class SdeWebServer {
         String auth = ex.getRequestHeaders()
             .getFirst("Authorization");
         if (auth != null && auth.startsWith("Bearer ")) {
-            return token.equals(auth.substring(7)
-                .trim());
+            return token.equals(
+                auth.substring(7)
+                    .trim());
         }
         String q = ex.getRequestURI()
             .getQuery();
@@ -216,8 +217,9 @@ public final class SdeWebServer {
             }
             JsonObject merged;
             synchronized (WORKSPACE_IO_LOCK) {
-                merged = patchWorkspaceDocument(root.get("patch")
-                    .getAsJsonObject());
+                merged = patchWorkspaceDocument(
+                    root.get("patch")
+                        .getAsJsonObject());
             }
             sendJson(ex, 200, merged);
             return;
@@ -366,8 +368,10 @@ public final class SdeWebServer {
         if (!dir.exists() && !dir.mkdirs()) {
             throw new IOException("无法创建目录");
         }
-        Files.write(workspaceFile().toPath(), GSON_PRETTY.toJson(doc)
-            .getBytes(StandardCharsets.UTF_8));
+        Files.write(
+            workspaceFile().toPath(),
+            GSON_PRETTY.toJson(doc)
+                .getBytes(StandardCharsets.UTF_8));
     }
 
     private JsonObject patchWorkspaceDocument(JsonObject patch) throws IOException {

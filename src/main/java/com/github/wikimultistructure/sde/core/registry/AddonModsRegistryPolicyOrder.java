@@ -32,7 +32,10 @@ public final class AddonModsRegistryPolicyOrder {
 
     private AddonModsRegistryPolicyOrder() {}
 
-    /** 与客户端 {@code BlockRegistryPolicies} 顺序相同，供 {@link com.github.wikimultistructure.sde.core.sampling.PolicyBackedBlockSampler} 使用。 */
+    /**
+     * 与客户端 {@code BlockRegistryPolicies} 顺序相同，供
+     * {@link com.github.wikimultistructure.sde.core.sampling.PolicyBackedBlockSampler} 使用。
+     */
     public static List<BlockRegistryWorldPolicy> orderedWorldPolicies() {
         return ORDERED_WORLD;
     }

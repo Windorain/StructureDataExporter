@@ -15,6 +15,9 @@ public interface BlockRegistryWorldPolicy {
      */
     boolean matches(Block block, String registryId, int meta);
 
-    /** 将世界坐标一格转为 {@link VoxelSample}；可与 {@link com.github.wikimultistructure.sde.core.sampling.DefaultBlockSampler} 委托等价。 */
+    /**
+     * 将世界坐标一格转为 {@link VoxelSample}；可与 {@link com.github.wikimultistructure.sde.core.sampling.DefaultBlockSampler}
+     * 委托等价。
+     */
     VoxelSample sample(World world, int x, int y, int z);
 }

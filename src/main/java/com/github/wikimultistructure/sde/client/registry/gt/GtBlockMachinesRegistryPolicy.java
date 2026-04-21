@@ -6,7 +6,6 @@ import java.util.List;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.World;
-
 import net.minecraftforge.common.util.ForgeDirection;
 
 import com.github.wikimultistructure.sde.client.export.ExportTextureLocator;
@@ -30,7 +29,8 @@ import cpw.mods.fml.relauncher.SideOnly;
 @SideOnly(Side.CLIENT)
 public final class GtBlockMachinesRegistryPolicy implements BlockRegistryPolicy {
 
-    private static final List<MetaTileBlockRegistryStrategy> META_TILE_CHAIN = Arrays.asList(new GregTechMultiblockControllerRegistryStrategy(),
+    private static final List<MetaTileBlockRegistryStrategy> META_TILE_CHAIN = Arrays.asList(
+        new GregTechMultiblockControllerRegistryStrategy(),
         new GregTechHatchRegistryStrategy(),
         new GregTechDefaultMetaTileRegistryStrategy());
 
@@ -116,7 +116,8 @@ public final class GtBlockMachinesRegistryPolicy implements BlockRegistryPolicy 
      * MTE 在渲染面为「非机器正面」时仅一层外壳，为「正面」时 {@code getTexture} 可返回多层。GT5U 中
      * {@code MTEMultiBlockBase} 主机与 {@code MTEHatch} 仓室均符合此形状，故共用同一 JSON 结构。
      *
-     * @param renderProfile {@link GtRenderProfiles#MULTIBLOCK_CONTROLLER} 或 {@link GtRenderProfiles#DEFAULT}（仓室）
+     * @param renderProfile            {@link GtRenderProfiles#MULTIBLOCK_CONTROLLER} 或
+     *                                 {@link GtRenderProfiles#DEFAULT}（仓室）
      * @param neighborShellBlockMarker 仓室为真时写入 {@code neighborShellBlock}，由 Wiki 按体素邻格解析，不导出映射表
      */
     static void writeMetaTileShellFrontFaceLayersEntry(JsonObject entry, Block block, int meta, String renderProfile,

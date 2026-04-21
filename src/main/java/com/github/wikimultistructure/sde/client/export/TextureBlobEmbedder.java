@@ -38,8 +38,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 public final class TextureBlobEmbedder {
 
     /** 与 Wiki 预览占位一致；无材质槽时仍须非空池以满足 Wiki 校验 */
-    private static final String PNG_BASE64_PLACEHOLDER =
-        "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAJ0lEQVR4nGNkwAH+M/zHKs7EQCJgGtVABGDEFd6MDIxDxQ9Mw0ADACTzBB1zL3aeAAAAAElFTkSuQmCC";
+    private static final String PNG_BASE64_PLACEHOLDER = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAJ0lEQVR4nGNkwAH+M/zHKs7EQCJgGtVABGDEFd6MDIxDxQ9Mw0ADACTzBB1zL3aeAAAAAElFTkSuQmCC";
 
     private static byte[] cachedPlaceholderPng;
 
@@ -90,8 +89,8 @@ public final class TextureBlobEmbedder {
                         .getAsString();
                 }
                 TextureMap itemsAtlas = MaterialKeyResolver.getTextureMapItems(mc);
-                TextureMap spriteAtlas =
-                    standalone ? blocksAtlas : ("items".equals(atlasStr) && itemsAtlas != null ? itemsAtlas : blocksAtlas);
+                TextureMap spriteAtlas = standalone ? blocksAtlas
+                    : ("items".equals(atlasStr) && itemsAtlas != null ? itemsAtlas : blocksAtlas);
 
                 byte[] png = loadTexturePngBytes(locator, standalone, spriteAtlas, rm);
                 String sha = sha256Hex(png);
@@ -99,8 +98,10 @@ public final class TextureBlobEmbedder {
                 if (idx == null) {
                     idx = blobs.size();
                     shaToIndex.put(sha, idx);
-                    blobs.add(new JsonPrimitive(java.util.Base64.getEncoder()
-                        .encodeToString(png)));
+                    blobs.add(
+                        new JsonPrimitive(
+                            java.util.Base64.getEncoder()
+                                .encodeToString(png)));
                 }
                 m.addProperty("textureBlobIndex", idx.intValue());
             }
@@ -134,8 +135,8 @@ public final class TextureBlobEmbedder {
         }
     }
 
-    private static byte[] loadTexturePngBytes(String locator, boolean standalone, TextureMap spriteAtlas, IResourceManager rm)
-        throws Exception {
+    private static byte[] loadTexturePngBytes(String locator, boolean standalone, TextureMap spriteAtlas,
+        IResourceManager rm) throws Exception {
         if (locator == null || locator.isEmpty() || "unknown".equals(locator)) {
             return getPlaceholderPngBytes();
         }

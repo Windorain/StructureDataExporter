@@ -30,13 +30,15 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * 客户端：读 {@link PendingDumpFiles} 触发文件 → 写出全量 {@code block_registry.json} / {@code material_registry.json}（不写 assets 镜像）。
+ * 客户端：读 {@link PendingDumpFiles} 触发文件 → 写出全量 {@code block_registry.json} / {@code material_registry.json}（不写 assets
+ * 镜像）。
  * <p>
  * 本类写出的注册表 JSON 自带各自的 {@code schemaVersion}（{@link #BLOCK_REGISTRY_SCHEMA_VERSION} 等），与 StructureData / capture 无关。
  * <p>
  * {@code block_registry}：一般方块为 world meta 0–15；{@code gregtech:gt.blockmachines} 按 GT5U {@code METATILEENTITIES}
  * 非空槽枚举，键 {@code registryId@n} 中 {@code n} 为 MetaTile ID（mID），见 {@link GregTechMetaTileRegistry}。
- * {@code material_registry}：仅由方块 {@link TextureMap} 的 {@code mapRegisteredSprites} 键经规范化枚举（见 {@link TextureMapAccessor}）。
+ * {@code material_registry}：仅由方块 {@link TextureMap} 的 {@code mapRegisteredSprites} 键经规范化枚举（见
+ * {@link TextureMapAccessor}）。
  */
 @SideOnly(Side.CLIENT)
 public final class ExportBundleClient {
@@ -60,7 +62,8 @@ public final class ExportBundleClient {
             return;
         }
         // 优先游戏目录；次选 JVM 当前工作目录（仅开发/特殊启动器场景，与 mcDataDir 可能不一致）
-        File[] pendingDumpCandidates = new File[] { new File(mc.mcDataDir, "structure_exports/" + PendingDumpFiles.FILE_NAME),
+        File[] pendingDumpCandidates = new File[] {
+            new File(mc.mcDataDir, "structure_exports/" + PendingDumpFiles.FILE_NAME),
             new File(new File("structure_exports"), PendingDumpFiles.FILE_NAME).getAbsoluteFile(), };
         for (File pending : pendingDumpCandidates) {
             if (!pending.isFile() || pending.length() == 0) {
@@ -85,7 +88,8 @@ public final class ExportBundleClient {
                             .addChatMessage(new ChatComponentText("SDE: 全量注册表已写出，但无法删除 pending_dump.json，请手动删除"));
                     }
                 } else if (mc.thePlayer != null) {
-                    mc.thePlayer.addChatMessage(new ChatComponentText("SDE: 全量注册表已写入: " + bundleRoot.getAbsolutePath()));
+                    mc.thePlayer
+                        .addChatMessage(new ChatComponentText("SDE: 全量注册表已写入: " + bundleRoot.getAbsolutePath()));
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -202,7 +206,8 @@ public final class ExportBundleClient {
     /**
      * 若 locator 对应纹理存在则登记 material_registry 条目（不写入磁盘 assets）。
      */
-    private static void registerMaterialMetadataOnly(Minecraft mc, String locator, Map<String, JsonObject> materialsOut) {
+    private static void registerMaterialMetadataOnly(Minecraft mc, String locator,
+        Map<String, JsonObject> materialsOut) {
         ResourceLocation texLoc = null;
         for (ResourceLocation candidate : ExportTextureLocator.texturePngResourceLocationsForBundle(locator)) {
             if (resourceExists(mc, candidate)) {

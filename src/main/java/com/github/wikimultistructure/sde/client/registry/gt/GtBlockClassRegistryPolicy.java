@@ -30,7 +30,8 @@ public final class GtBlockClassRegistryPolicy implements BlockRegistryPolicy {
     /** 写入 {@code faces.*.layers[]} 的 {@code layerRole}；默认 {@code base} */
     private final String faceLayerRole;
 
-    public GtBlockClassRegistryPolicy(String blockClassBinaryName, String renderProfile, GtBlockClassWorldPolicy world) {
+    public GtBlockClassRegistryPolicy(String blockClassBinaryName, String renderProfile,
+        GtBlockClassWorldPolicy world) {
         this(blockClassBinaryName, renderProfile, world, "base");
     }
 

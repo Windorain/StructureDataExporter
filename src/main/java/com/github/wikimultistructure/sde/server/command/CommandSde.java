@@ -101,7 +101,8 @@ public class CommandSde extends CommandBase {
                     String dumpRoot = s.requestRegistryDump();
                     sender.addChatMessage(
                         new ChatComponentText(
-                            "SDE: 已写入 pending_dump.json，客户端将生成全量 block_registry.json / material_registry.json: " + dumpRoot));
+                            "SDE: 已写入 pending_dump.json，客户端将生成全量 block_registry.json / material_registry.json: "
+                                + dumpRoot));
                     break;
                 case "status":
                     sender.addChatMessage(new ChatComponentText(s.statusLine()));
@@ -119,8 +120,10 @@ public class CommandSde extends CommandBase {
                     // 集成服客户端环境会 NoSuchMethodError。本机浏览器用回环即可；远程访问请自行换为机器局域网 IP。
                     String host = "127.0.0.1";
                     String base = "http://" + host + ":" + port;
-                    String workbenchUrl =
-                        base + "/?apiBase=" + java.net.URLEncoder.encode(base, "UTF-8") + "&token=" + tok;
+                    String workbenchUrl = base + "/?apiBase="
+                        + java.net.URLEncoder.encode(base, "UTF-8")
+                        + "&token="
+                        + tok;
 
                     IChatComponent webLine = new ChatComponentText("");
                     webLine.appendSibling(new ChatComponentText("SDE Web "));
@@ -215,8 +218,7 @@ public class CommandSde extends CommandBase {
     private static ChatComponentText sdeClickableLink(String label, String url, String hover) {
         ChatComponentText t = new ChatComponentText(label);
         t.setChatStyle(
-            new ChatStyle()
-                .setChatClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
+            new ChatStyle().setChatClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
                 .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(hover)))
                 .setUnderlined(true)
                 .setColor(EnumChatFormatting.AQUA));
@@ -226,9 +228,9 @@ public class CommandSde extends CommandBase {
     private static ChatComponentText sdeSuggestToken(String label, String token) {
         ChatComponentText t = new ChatComponentText(label);
         t.setChatStyle(
-            new ChatStyle()
-                .setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, token))
-                .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("点击将 token 填入聊天栏")))
+            new ChatStyle().setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, token))
+                .setChatHoverEvent(
+                    new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("点击将 token 填入聊天栏")))
                 .setUnderlined(true)
                 .setColor(EnumChatFormatting.GREEN));
         return t;

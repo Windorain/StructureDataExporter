@@ -22,15 +22,8 @@ public final class BlockPrimaryCaptureContext {
     private final RenderBlocks renderBlocks;
     private final float partialTicks;
 
-    public BlockPrimaryCaptureContext(
-        World world,
-        int wx,
-        int wy,
-        int wz,
-        Block block,
-        int meta,
-        RenderBlocks renderBlocks,
-        float partialTicks) {
+    public BlockPrimaryCaptureContext(World world, int wx, int wy, int wz, Block block, int meta,
+        RenderBlocks renderBlocks, float partialTicks) {
         this.world = world;
         this.wx = wx;
         this.wy = wy;

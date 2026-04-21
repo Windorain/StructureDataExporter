@@ -58,8 +58,9 @@ public final class TileEntitySpecialRendererPostRenderStrategy implements MeshCa
             return false;
         }
         /* 与 {@link ForgeMultipartDynamicPostRenderStrategy} 链式并存：multipart 由 FMP 策略独占 */
-        if ("codechicken.multipart.TileMultipart".equals(te.getClass()
-            .getName())) {
+        if ("codechicken.multipart.TileMultipart".equals(
+            te.getClass()
+                .getName())) {
             return false;
         }
         if (isDeniedTileEntityClass(te.getClass())) {
@@ -140,7 +141,9 @@ public final class TileEntitySpecialRendererPostRenderStrategy implements MeshCa
             return false;
         }
         GameRegistry.UniqueIdentifier uid = GameRegistry.findUniqueIdentifierFor(ctx.getBlock());
-        String key = uid == null ? "" : uid.toString().toLowerCase(Locale.ROOT);
+        String key = uid == null ? ""
+            : uid.toString()
+                .toLowerCase(Locale.ROOT);
         return key.length() > 0 && ALLOWLIST.contains(key);
     }
 
@@ -150,7 +153,8 @@ public final class TileEntitySpecialRendererPostRenderStrategy implements MeshCa
         }
         Set<String> out = new LinkedHashSet<>();
         for (String part : raw.split(",")) {
-            String t = part.trim().toLowerCase(Locale.ROOT);
+            String t = part.trim()
+                .toLowerCase(Locale.ROOT);
             if (!t.isEmpty()) {
                 out.add(t);
             }

@@ -23,16 +23,23 @@ import cpw.mods.fml.relauncher.SideOnly;
  * <ol>
  * <li>场景导出仅写结构 JSON；全量注册表由 {@code /sde dump} 触发服务端写出 {@code pending_dump.json}，客户端
  * {@link ExportBundleClient#tickConsumePendingDumpIfAny} 调用 {@link ExportBundleClient#writeFullRegistryDump}。</li>
- * <li>{@link ExportBundleClient#writeFullRegistryDump}：{@code block_registry} 由 Block 注册表调用 {@link #resolve(Block, int, String)}；
- * 一般方块 {@code meta} 为世界变体 0–15；{@code gregtech:gt.blockmachines} 为 MetaTile ID（mID），见 {@link com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry}。
- * {@code material_registry} 仅由方块 {@link net.minecraft.client.renderer.texture.TextureMap} 的 {@code mapRegisteredSprites} 键经
- * {@link #iconNameToLocator}、{@link #normalizeLocatorForBundle} 枚举（见 {@link com.github.wikimultistructure.sde.mixin.interfaces.accessors.TextureMapAccessor}）。</li>
+ * <li>{@link ExportBundleClient#writeFullRegistryDump}：{@code block_registry} 由 Block 注册表调用
+ * {@link #resolve(Block, int, String)}；
+ * 一般方块 {@code meta} 为世界变体 0–15；{@code gregtech:gt.blockmachines} 为 MetaTile ID（mID），见
+ * {@link com.github.wikimultistructure.sde.core.registry.GregTechMetaTileRegistry}。
+ * {@code material_registry} 仅由方块 {@link net.minecraft.client.renderer.texture.TextureMap} 的
+ * {@code mapRegisteredSprites} 键经
+ * {@link #iconNameToLocator}、{@link #normalizeLocatorForBundle} 枚举（见
+ * {@link com.github.wikimultistructure.sde.mixin.interfaces.accessors.TextureMapAccessor}）。</li>
  * <li>{@link #resolve}：若 {@code renderProfile} 走 MTE 路径，则 {@link GtTextureResolver#tryMetaTileEntityLocator}，
  * 从 MTE/ITexture 解出与 {@link IIcon} 等价的原始 {@code ns:path}；否则走 {@link Block#getIcon} → {@link IIcon#getIconName()}。
  * GregTech 复制方块纹理见 {@code gregtech.api.render.TextureFactory} / {@code gregtech.common.render.GTBlockTextureBuilder}，
- * 解析细节见 {@link GtTextureResolver#locatorFromGtITexture}（{@code GTCopiedBlockTextureRender}、{@code GTCopiedCTMBlockTexture}）。</li>
- * <li>两条分支均在 {@link #resolve} 出口唯一调用 {@link #normalizeLocatorForBundle}（与磁盘 {@code assets/.../textures/...} 对齐）；{@link GtTextureResolver} 内部不再重复规范化。</li>
- * <li>材质条目用 {@link net.minecraft.util.ResourceLocation} 探测 PNG/mcmeta（不复制资源文件）；{@code block_registry} 中 {@code materialId} 与
+ * 解析细节见
+ * {@link GtTextureResolver#locatorFromGtITexture}（{@code GTCopiedBlockTextureRender}、{@code GTCopiedCTMBlockTexture}）。</li>
+ * <li>两条分支均在 {@link #resolve} 出口唯一调用 {@link #normalizeLocatorForBundle}（与磁盘 {@code assets/.../textures/...}
+ * 对齐）；{@link GtTextureResolver} 内部不再重复规范化。</li>
+ * <li>材质条目用 {@link net.minecraft.util.ResourceLocation} 探测 PNG/mcmeta（不复制资源文件）；{@code block_registry} 中
+ * {@code materialId} 与
  * {@code material_registry} 键使用<b>同一</b>规范化 locator 字符串。</li>
  * </ol>
  * <p>
@@ -41,7 +48,8 @@ import cpw.mods.fml.relauncher.SideOnly;
  * <li>本导出流程中的纹理均按<b>方块侧</b>处理：{@link Block#getIcon}、MTE 纹理等对应 Minecraft <b>方块纹理图集</b>（{@code TextureMap} block 侧），
  * 而非物品图集。详见 {@link #normalizeLocatorForBundle}。</li>
  * <li>locator 的 {@code path} 段表示 {@code assets/&lt;ns&gt;/textures/&lt;path&gt;.png} 中 {@code textures/} <b>之后</b>的路径，
- * 且规范化后应含 {@code blocks/} 或 {@code items/} 之一；无此前缀时默认补 {@code blocks/}；若注册名已显式为 {@code items/...} 则保留（见 {@link #normalizeLocatorForBundle}）。</li>
+ * 且规范化后应含 {@code blocks/} 或 {@code items/} 之一；无此前缀时默认补 {@code blocks/}；若注册名已显式为 {@code items/...} 则保留（见
+ * {@link #normalizeLocatorForBundle}）。</li>
  * </ul>
  */
 @SideOnly(Side.CLIENT)
@@ -61,15 +69,17 @@ public final class ExportTextureLocator {
      * <p>
      * <b>假设</b>：见类注释；此处两条分支（MTE / 普通方块图标）最终都经 {@link #normalizeLocatorForBundle}。
      *
-     * @param meta           MTE 路径时为 GT5U mID；否则为世界 block metadata（0–15）。
-     * @param renderProfile  与 {@link com.github.wikimultistructure.sde.core.registry.gt.GtRenderProfiles} 常量一致；{@code null} 按非 MTE 处理。
+     * @param meta          MTE 路径时为 GT5U mID；否则为世界 block metadata（0–15）。
+     * @param renderProfile 与 {@link com.github.wikimultistructure.sde.core.registry.gt.GtRenderProfiles}
+     *                      常量一致；{@code null} 按非 MTE 处理。
      */
     public static String resolve(Block block, int meta, String renderProfile) {
         if (block == null) {
             return null;
         }
         if (GtRenderProfiles.usesMetaTileEntityResolver(renderProfile)) {
-            String fromMte = GtTextureResolver.tryMetaTileEntityLocator(meta, DEFAULT_SAMPLE_SIDE, ForgeDirection.NORTH);
+            String fromMte = GtTextureResolver
+                .tryMetaTileEntityLocator(meta, DEFAULT_SAMPLE_SIDE, ForgeDirection.NORTH);
             if (fromMte != null && !isLikelyGtRenderingErrorLocator(fromMte)) {
                 return normalizeLocatorForBundle(fromMte);
             }
@@ -101,7 +111,8 @@ public final class ExportTextureLocator {
     }
 
     /**
-     * {@link IIcon#getIconName()} → 中间形式 {@code ns:path}（仍可能缺 {@code blocks/} 层，由 {@link #normalizeLocatorForBundle} 补全）。
+     * {@link IIcon#getIconName()} → 中间形式 {@code ns:path}（仍可能缺 {@code blocks/} 层，由 {@link #normalizeLocatorForBundle}
+     * 补全）。
      */
     public static String locatorFromIcon(IIcon icon) {
         if (icon == null) {
@@ -128,7 +139,8 @@ public final class ExportTextureLocator {
     }
 
     /**
-     * 将各来源的 locator 字符串规范为与 {@link net.minecraft.client.resources.IResourceManager#getResource}、磁盘 {@code assets/.../textures/...}
+     * 将各来源的 locator 字符串规范为与 {@link net.minecraft.client.resources.IResourceManager#getResource}、磁盘
+     * {@code assets/.../textures/...}
      * 一致的形式，供 {@link ExportBundleClient} 拼接 {@code textures/ + path + .png} 做资源探测。
      * <p>
      * <b>假设（本模组导出语境）</b>：此处出现的纹理均来自<b>方块</b>侧（{@link Block#getIcon}、MTE 对方块采样等），即对应
@@ -144,21 +156,9 @@ public final class ExportTextureLocator {
      * <p>
      * 可多次调用，幂等。
      */
-    private static final String[] EXPLICIT_TEXTURE_PATH_ROOTS = new String[] {
-        "blocks/",
-        "items/",
-        "materialicons/",
-        "models/",
-        "entity/",
-        "gui/",
-        "misc/",
-        "environment/",
-        "font/",
-        "map/",
-        "painting/",
-        "particle/",
-        "colormap/",
-    };
+    private static final String[] EXPLICIT_TEXTURE_PATH_ROOTS = new String[] { "blocks/", "items/", "materialicons/",
+        "models/", "entity/", "gui/", "misc/", "environment/", "font/", "map/", "painting/", "particle/",
+        "colormap/", };
 
     private static boolean pathHasExplicitTextureRoot(String path) {
         for (String root : EXPLICIT_TEXTURE_PATH_ROOTS) {
@@ -177,7 +177,8 @@ public final class ExportTextureLocator {
         if (colon < 0) {
             return locator;
         }
-        String ns = locator.substring(0, colon).toLowerCase(Locale.ROOT);
+        String ns = locator.substring(0, colon)
+            .toLowerCase(Locale.ROOT);
         String path = locator.substring(colon + 1);
         while (path.startsWith("textures/")) {
             path = path.substring("textures/".length());

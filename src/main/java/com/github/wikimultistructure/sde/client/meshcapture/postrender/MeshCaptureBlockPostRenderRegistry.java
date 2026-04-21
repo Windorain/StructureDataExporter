@@ -14,8 +14,10 @@ import cpw.mods.fml.relauncher.SideOnly;
  * <p>
  * 内置策略（按 {@link MeshCaptureBlockPostRenderStrategy#priority()} 升序，<strong>所有</strong> {@code applies} 为 true 的均会执行）：
  * <ul>
- * <li>{@link ForgeMultipartDynamicPostRenderStrategy} — priority {@value ForgeMultipartDynamicPostRenderStrategy#DEFAULT_PRIORITY}；</li>
- * <li>{@link TileEntitySpecialRendererPostRenderStrategy} — priority {@value TileEntitySpecialRendererPostRenderStrategy#DEFAULT_PRIORITY}。</li>
+ * <li>{@link ForgeMultipartDynamicPostRenderStrategy} — priority
+ * {@value ForgeMultipartDynamicPostRenderStrategy#DEFAULT_PRIORITY}；</li>
+ * <li>{@link TileEntitySpecialRendererPostRenderStrategy} — priority
+ * {@value TileEntitySpecialRendererPostRenderStrategy#DEFAULT_PRIORITY}。</li>
  * </ul>
  * 自定义策略：实现 {@link MeshCaptureBlockPostRenderStrategy}，{@code priority} 取更小值以优先检测；在
  * {@link MeshCaptureBlockPostRenderStrategy#renderPostMainBlock} 内可委托
@@ -42,7 +44,8 @@ public final class MeshCaptureBlockPostRenderRegistry {
     }
 
     /**
-     * 按 priority 升序，对<strong>所有</strong> {@code applies} 为 true 的策略依次执行 {@link MeshCaptureBlockPostRenderStrategy#renderPostMainBlock}。
+     * 按 priority 升序，对<strong>所有</strong> {@code applies} 为 true 的策略依次执行
+     * {@link MeshCaptureBlockPostRenderStrategy#renderPostMainBlock}。
      */
     public static void dispatch(MeshCaptureBlockPostRenderContext ctx) {
         if (ctx == null) {
@@ -56,8 +59,11 @@ public final class MeshCaptureBlockPostRenderRegistry {
                     s.renderPostMainBlock(ctx);
                 }
             } catch (Throwable t) {
-                FMLLog.warning("[SDE] MeshCaptureBlockPostRenderRegistry: strategy %s failed: %s", s.getClass()
-                    .getName(), t.getMessage());
+                FMLLog.warning(
+                    "[SDE] MeshCaptureBlockPostRenderRegistry: strategy %s failed: %s",
+                    s.getClass()
+                        .getName(),
+                    t.getMessage());
             }
         }
     }

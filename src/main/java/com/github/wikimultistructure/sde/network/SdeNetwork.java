@@ -34,7 +34,8 @@ public final class SdeNetwork {
         initialized = true;
         channel = new SimpleNetworkWrapper(NETWORK_CHANNEL);
         channel.registerMessage(PacketSyncSelectionHandler.class, PacketSyncSelection.class, 0, Side.CLIENT);
-        channel.registerMessage(PacketEnrichExportedSceneHandler.class, PacketEnrichExportedScene.class, 1, Side.CLIENT);
+        channel
+            .registerMessage(PacketEnrichExportedSceneHandler.class, PacketEnrichExportedScene.class, 1, Side.CLIENT);
     }
 
     public static void sendSelectionSync(EntityPlayerMP player) {
@@ -53,7 +54,8 @@ public final class SdeNetwork {
     /**
      * 将场景 JSON 全文发给执行导出的玩家，由客户端捕获网格后写入本地 {@code structure_exports} 目录下对应文件名。
      */
-    public static void sendEnrichExportedScene(EntityPlayerMP player, String fileName, byte[] utf8Json, boolean writeRaw) {
+    public static void sendEnrichExportedScene(EntityPlayerMP player, String fileName, byte[] utf8Json,
+        boolean writeRaw) {
         if (channel == null || fileName == null || fileName.isEmpty() || utf8Json == null || utf8Json.length == 0) {
             return;
         }

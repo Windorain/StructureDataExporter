@@ -29,16 +29,14 @@ import net.minecraft.world.World;
 
 import org.lwjgl.opengl.GL11;
 
-import cpw.mods.fml.relauncher.ReflectionHelper;
-
-import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedBlockInstance;
-import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
-import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
-import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderContext;
 import com.github.wikimultistructure.sde.client.export.ExportTextureLocator;
 import com.github.wikimultistructure.sde.client.export.MaterialAnimationJson;
 import com.github.wikimultistructure.sde.client.export.SceneCompactJson;
 import com.github.wikimultistructure.sde.client.export.TextureBlobEmbedder;
+import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedBlockInstance;
+import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
+import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
+import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderContext;
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderRegistry;
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureContext;
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureRegistry;
@@ -52,11 +50,13 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 
 import cpw.mods.fml.common.registry.GameRegistry;
+import cpw.mods.fml.relauncher.ReflectionHelper;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 /**
- * Client-only：读取 {@code geometryPhase=scan}，在客户端世界坐标下烘焙 BakedQuads，按几何指纹合并槽位，写出 {@code geometryPhase=baked}（无根级 {@code schemaVersion}，{@code blockPalette} 无 {@code tileNbtB64}）。
+ * Client-only：读取 {@code geometryPhase=scan}，在客户端世界坐标下烘焙 BakedQuads，按几何指纹合并槽位，写出 {@code geometryPhase=baked}（无根级
+ * {@code schemaVersion}，{@code blockPalette} 无 {@code tileNbtB64}）。
  */
 @SideOnly(Side.CLIENT)
 public final class MeshCaptureService {
@@ -137,14 +137,17 @@ public final class MeshCaptureService {
             TextureBlobEmbedder.embedIntoDocument(root);
             return;
         }
-        if (root.has("geometryPhase") && "scan".equals(root.get("geometryPhase")
-            .getAsString())) {
+        if (root.has("geometryPhase") && "scan".equals(
+            root.get("geometryPhase")
+                .getAsString())) {
             finalizeSingleStructure(root);
             TextureBlobEmbedder.embedIntoDocument(root);
             return;
         }
-        if (root.has("geometryPhase") && "baked".equals(root.get("geometryPhase")
-            .getAsString()) && !root.has("textureBlobs")) {
+        if (root.has("geometryPhase") && "baked".equals(
+            root.get("geometryPhase")
+                .getAsString())
+            && !root.has("textureBlobs")) {
             TextureBlobEmbedder.embedIntoDocument(root);
         }
     }
@@ -153,8 +156,9 @@ public final class MeshCaptureService {
         if (structure == null || !structure.has("cellGrid")) {
             return;
         }
-        if (!structure.has("geometryPhase") || !"scan".equals(structure.get("geometryPhase")
-            .getAsString())) {
+        if (!structure.has("geometryPhase") || !"scan".equals(
+            structure.get("geometryPhase")
+                .getAsString())) {
             return;
         }
         if (!structure.has("cellTypes") || !structure.has("worldGrid")) {
@@ -223,18 +227,7 @@ public final class MeshCaptureService {
             CapturedBlockInstance inst = new CapturedBlockInstance();
             int blockMeta = world.getBlockMetadata(wx, wy, wz);
             int renderType = b.getRenderType();
-            TessellatorCaptureState.beginBlock(
-                wx,
-                wy,
-                wz,
-                label,
-                wx,
-                wy,
-                wz,
-                b,
-                blockMeta,
-                renderType,
-                vs.registryId);
+            TessellatorCaptureState.beginBlock(wx, wy, wz, label, wx, wy, wz, b, blockMeta, renderType, vs.registryId);
             Tessellator tess = Tessellator.instance;
             tess.startDrawingQuads();
             BlockPrimaryCaptureRegistry.dispatch(
@@ -242,7 +235,7 @@ public final class MeshCaptureService {
             /*
              * 结束静态批次再 dispatch：FMP/PR 的 renderDynamic 内会 CCRenderState#startDrawingInstance →
              * Tessellator#startDrawing。若外层 startDrawingQuads 尚未 draw，将 IllegalStateException: Already tesselating
-             *（与 Vector3/ClassLoader 反射无关）。
+             * （与 Vector3/ClassLoader 反射无关）。
              */
             tess.draw();
 
@@ -323,8 +316,10 @@ public final class MeshCaptureService {
             }
             p.addProperty("renderMode", "BakedQuads");
             p.add("geometry", deepCopyJsonObject(geometryForFinal.get(fi)));
-            p.addProperty("occludesAdjacentFaces", opaqueForFinal.getOrDefault(fi, false)
-                .booleanValue());
+            p.addProperty(
+                "occludesAdjacentFaces",
+                opaqueForFinal.getOrDefault(fi, false)
+                    .booleanValue());
             blockPalette.add(p);
         }
 
@@ -381,16 +376,17 @@ public final class MeshCaptureService {
                         .getAsInt() : 0;
                     int col = v.has("color") ? v.get("color")
                         .getAsInt() : 0;
-                    vparts.add(String.format(
-                        Locale.ROOT,
-                        "%.4f,%.4f,%.4f,%.4f,%.4f,%d,%d",
-                        quant4(v.get("x")),
-                        quant4(v.get("y")),
-                        quant4(v.get("z")),
-                        quant4(v.get("u")),
-                        quant4(v.get("v")),
-                        br,
-                        col));
+                    vparts.add(
+                        String.format(
+                            Locale.ROOT,
+                            "%.4f,%.4f,%.4f,%.4f,%.4f,%d,%d",
+                            quant4(v.get("x")),
+                            quant4(v.get("y")),
+                            quant4(v.get("z")),
+                            quant4(v.get("u")),
+                            quant4(v.get("v")),
+                            br,
+                            col));
                 }
                 Collections.sort(vparts);
                 StringBuilder sb = new StringBuilder();
@@ -539,8 +535,12 @@ public final class MeshCaptureService {
                     if (!world.getChunkProvider()
                         .chunkExists(wx >> 4, wz >> 4)) {
                         throw new IllegalStateException(
-                            "Mesh capture: chunk not loaded for world block " + wx + "," + worldCoords[zi][ri][ci][1] + ","
-                                + wz + ". Load the area on the client before capture.");
+                            "Mesh capture: chunk not loaded for world block " + wx
+                                + ","
+                                + worldCoords[zi][ri][ci][1]
+                                + ","
+                                + wz
+                                + ". Load the area on the client before capture.");
                     }
                 }
             }
@@ -601,11 +601,7 @@ public final class MeshCaptureService {
             for (int ri = 0; ri < cellGrid[zi].length; ri++) {
                 for (int ci = 0; ci < cellGrid[zi][ri].length; ci++) {
                     if (cellGrid[zi][ri][ci] == paletteIndex) {
-                        return new int[] {
-                            zi,
-                            ri,
-                            ci
-                        };
+                        return new int[] { zi, ri, ci };
                     }
                 }
             }
@@ -617,7 +613,8 @@ public final class MeshCaptureService {
         for (CapturedQuad q : inst.quads) {
             String materialKey = MaterialKeyResolver.applySpriteLocalToQuad(q, textureMap);
             String atlasKind = q.materialUsesStandaloneTexture ? null : q.materialAtlasKind;
-            q.samplerIndex = samplers.indexForMaterial(materialKey, textureMap, q.materialUsesStandaloneTexture, atlasKind);
+            q.samplerIndex = samplers
+                .indexForMaterial(materialKey, textureMap, q.materialUsesStandaloneTexture, atlasKind);
         }
     }
 
@@ -626,7 +623,8 @@ public final class MeshCaptureService {
         private final List<JsonObject> list = new ArrayList<>();
         private final Map<String, Integer> indexByKey = new LinkedHashMap<>();
 
-        int indexForMaterial(String materialKey, TextureMap blocksTextureMap, boolean standaloneFileTexture, String paletteAtlasKind) {
+        int indexForMaterial(String materialKey, TextureMap blocksTextureMap, boolean standaloneFileTexture,
+            String paletteAtlasKind) {
             String atlasBand = standaloneFileTexture ? "file" : ("items".equals(paletteAtlasKind) ? "items" : "blocks");
             String cacheKey = standaloneFileTexture ? materialKey + "\0__sde_file_tex" : materialKey + "\0" + atlasBand;
             Integer idx = indexByKey.get(cacheKey);
@@ -653,10 +651,7 @@ public final class MeshCaptureService {
             if ("animated".equals(kind)) {
                 TextureAtlasSprite sprAnim = MaterialKeyResolver.findSpriteForMaterialKey(materialKey, kindMap);
                 String norm = ExportTextureLocator.normalizeLocatorForBundle(materialKey);
-                JsonObject anim = MaterialAnimationJson.tryResolveForMaterial(
-                    Minecraft.getMinecraft(),
-                    norm,
-                    sprAnim);
+                JsonObject anim = MaterialAnimationJson.tryResolveForMaterial(Minecraft.getMinecraft(), norm, sprAnim);
                 if (anim != null) {
                     s.add("animation", anim);
                 }
@@ -671,10 +666,14 @@ public final class MeshCaptureService {
             JsonArray a = new JsonArray();
             for (JsonObject s : list) {
                 JsonObject m = new JsonObject();
-                m.addProperty("locator", s.get("texture")
-                    .getAsString());
-                m.addProperty("kind", s.get("kind")
-                    .getAsString());
+                m.addProperty(
+                    "locator",
+                    s.get("texture")
+                        .getAsString());
+                m.addProperty(
+                    "kind",
+                    s.get("kind")
+                        .getAsString());
                 if (s.has("atlas")) {
                     m.add("atlas", s.get("atlas"));
                 }
