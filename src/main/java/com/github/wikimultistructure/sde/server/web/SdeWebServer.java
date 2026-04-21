@@ -6,8 +6,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,6 +27,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
+import cpw.mods.fml.common.FMLLog;
+
 /**
  * SDE 内嵌 HTTP：classpath 静态工作台 + {@code /api/v1/*} REST。
  * 1.7.10 无 {@code MinecraftServer.addScheduledTask}；API 仅读写 {@code structure_exports/} 与工作区 JSON，在 HTTP 线程执行并对工作区加锁。
@@ -38,6 +42,9 @@ public final class SdeWebServer {
     private static final String WEB_ROOT_PREFIX = "assets/structuredataexporter/web/";
     /** 工作区 JSON 并发读写（HTTP 线程直接访问文件，1.7.10 无 MC 主线程队列 API） */
     private static final Object WORKSPACE_IO_LOCK = new Object();
+
+    /** 首选端口被占用时，依次尝试 preferred、preferred+1、… 的次数上限 */
+    private static final int MAX_PORT_BIND_ATTEMPTS = 128;
 
     private static SdeWebServer instance;
 
@@ -77,14 +84,59 @@ public final class SdeWebServer {
         return instance == null ? "" : instance.token;
     }
 
-    private void doStart(int port, String authToken) throws IOException {
+    private void doStart(int preferredPort, String authToken) throws IOException {
         stopServer();
-        this.port = port;
         this.token = authToken;
-        httpServer = HttpServer.create(new InetSocketAddress(port), 0);
-        httpServer.createContext("/", new RootHandler());
-        httpServer.setExecutor(null);
-        httpServer.start();
+        int base = Math.max(1, Math.min(preferredPort, 65535));
+        IOException last = null;
+        for (int i = 0; i < MAX_PORT_BIND_ATTEMPTS; i++) {
+            long candidate = (long) base + i;
+            if (candidate > 65535L) {
+                break;
+            }
+            int tryPort = (int) candidate;
+            try {
+                HttpServer server = HttpServer.create(new InetSocketAddress(tryPort), 0);
+                server.createContext("/", new RootHandler());
+                server.setExecutor(null);
+                server.start();
+                this.httpServer = server;
+                this.port = tryPort;
+                if (tryPort != base) {
+                    FMLLog.info("[SDE] Web: 首选端口 %d 不可用，已绑定 %d", base, tryPort);
+                }
+                return;
+            } catch (IOException e) {
+                last = e;
+                if (isBindFailure(e) && i < MAX_PORT_BIND_ATTEMPTS - 1 && candidate < 65535L) {
+                    continue;
+                }
+                throw e;
+            }
+        }
+        if (last != null) {
+            throw last;
+        }
+        throw new IOException(
+            "SDE Web: 无法绑定端口（自 " + base + " 起已尝试至 65535 或达 " + MAX_PORT_BIND_ATTEMPTS + " 次）");
+    }
+
+    private static boolean isBindFailure(IOException e) {
+        Throwable t = e;
+        while (t != null) {
+            if (t instanceof BindException) {
+                return true;
+            }
+            String m = t.getMessage();
+            if (m != null) {
+                String lower = m.toLowerCase(Locale.ROOT);
+                if (lower.contains("address already in use") || lower.contains("in use") || lower.contains("eaddrinuse")) {
+                    return true;
+                }
+            }
+            t = t.getCause();
+        }
+        return false;
     }
 
     private static void addCors(HttpExchange ex) {

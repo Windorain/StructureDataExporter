@@ -9,7 +9,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 /**
  * 网格捕获后顶点归一化到「块局部 [0,1]³」契约时采用的策略。
  * <p>
- * {@link #DEFAULT_WORLD_CORNER}：由 {@link TessellatorCaptureState} 在「结构格原点」与「世界角点」之间按单位块 AABB 自动择一。
+ * {@link #DEFAULT_WORLD_CORNER}：由 {@link TessellatorCaptureState} 对每个 quad 在减 {@code (0,0,0)} 与减世界角之间按贴近 {@code [0,1]³} 的代价择一。
  * <p>
  * {@link #SPECIAL_EXTENDED} 为超单格/多格延伸模型占位：当前与默认分支相同，仅打日志便于后续扩展。
  */

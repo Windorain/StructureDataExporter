@@ -116,10 +116,15 @@ public class CommandSde extends CommandBase {
                         .toString()
                         .replace("-", "");
                     SdeWebServer.start(port, tok);
+                    int boundPort = SdeWebServer.getBoundPort();
+                    if (boundPort != port) {
+                        sender.addChatMessage(
+                            new ChatComponentText("SDE: 端口 " + port + " 已被占用，Web 已使用 " + boundPort));
+                    }
                     // 勿用 MinecraftServer.getServerHostname()/getHostname()：1.7.10 上为 @SideOnly(SERVER)，
                     // 集成服客户端环境会 NoSuchMethodError。本机浏览器用回环即可；远程访问请自行换为机器局域网 IP。
                     String host = "127.0.0.1";
-                    String base = "http://" + host + ":" + port;
+                    String base = "http://" + host + ":" + boundPort;
                     String workbenchUrl = base + "/?apiBase="
                         + java.net.URLEncoder.encode(base, "UTF-8")
                         + "&token="
