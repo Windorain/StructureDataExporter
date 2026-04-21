@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 import com.github.wikimultistructure.sde.core.export.PendingDumpFiles;
 import com.google.gson.Gson;
@@ -35,7 +34,6 @@ public final class SdeWebServer {
     private static final Gson GSON_PRETTY = new GsonBuilder().setPrettyPrinting()
         .create();
     private static final Gson GSON = new Gson();
-    private static final Pattern SAFE_EXPORT_NAME = Pattern.compile("^[a-zA-Z0-9_.-]+\\.json$");
     private static final String WORKSPACE_FILE = "_sde_workspace.json";
     private static final String WEB_ROOT_PREFIX = "assets/structuredataexporter/web/";
     /** 工作区 JSON 并发读写（HTTP 线程直接访问文件，1.7.10 无 MC 主线程队列 API） */
@@ -158,6 +156,18 @@ public final class SdeWebServer {
         return o;
     }
 
+    /**
+     * 允许 UTF-8 文件名（含中文）；仍禁止路径分隔与 “..”，{@link #readExportJson} 再用 canonical 路径防穿越。
+     */
+    private static boolean isSafeExportFileName(String name) {
+        if (name == null || name.isEmpty()) return false;
+        if (name.contains("..") || name.indexOf('/') >= 0 || name.indexOf('\\') >= 0) return false;
+        if (name.indexOf('\0') >= 0) return false;
+        if (!name.endsWith(".json")) return false;
+        if (WORKSPACE_FILE.equals(name) || PendingDumpFiles.FILE_NAME.equals(name)) return false;
+        return true;
+    }
+
     private void handleApi(HttpExchange ex, String path) throws Exception {
         String method = ex.getRequestMethod();
         if ("GET".equals(method) && "/api/v1/ping".equals(path)) {
@@ -175,8 +185,7 @@ public final class SdeWebServer {
         }
         if ("GET".equals(method) && path.startsWith("/api/v1/exports/")) {
             String name = path.substring("/api/v1/exports/".length());
-            if (!SAFE_EXPORT_NAME.matcher(name)
-                .matches()) {
+            if (!isSafeExportFileName(name)) {
                 sendJson(ex, 400, error("非法文件名"));
                 return;
             }
