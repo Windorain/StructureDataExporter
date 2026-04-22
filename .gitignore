@@ -6,3 +6,6 @@
 .idea/
 *.log
 .refs/
+
+# WebStructureRenderer 本地检出目录（默认名 dist-workbench，见 sde.workbenchNpmDir）；勿提交
+/dist-workbench/

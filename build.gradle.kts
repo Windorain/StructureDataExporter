@@ -1,6 +1,7 @@
 import groovy.json.JsonSlurper
 import java.net.HttpURLConnection
 import java.net.URI
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
@@ -18,14 +19,73 @@ fun workbenchSyncMode(): String =
 
 fun npmWorkbenchDirPath(): String =
     (findProperty("sde.workbenchNpmDir") as String?)?.trim()
-        ?: "../WebStructureRenderer"
+        ?: "dist-workbench"
+
+fun workbenchGitCloneUrl(): String =
+    (findProperty("sde.workbenchGitUrl") as String?)?.trim()
+        ?: "https://github.com/Windorain/WebStructureRenderer.git"
+
+fun workbenchGitBranch(): String =
+    (findProperty("sde.workbenchGitBranch") as String?)?.trim().orEmpty()
+
+/** 无仓库则 shallow clone，有则 git pull --ff-only（须本机已装 git） */
+tasks.register("prepareWikiWorkbenchGitRepo") {
+    group = "SDE web"
+    description =
+        "将 WebStructureRenderer 克隆或更新到 sde.workbenchNpmDir（默认 dist-workbench/）"
+    // configuration cache：doLast 只捕获 String 等可序列化值，不引用脚本函数/Provider
+    val workbenchRootAbs =
+        layout.projectDirectory.dir(npmWorkbenchDirPath()).asFile.absoluteFile.normalize().path
+    val cloneUrl = workbenchGitCloneUrl()
+    val branch = workbenchGitBranch()
+
+    doLast {
+        val dir = File(workbenchRootAbs)
+        val gitDir = File(dir, ".git")
+        val parent = dir.parentFile ?: throw GradleException("无法解析 ${dir.absolutePath} 的父目录")
+
+        fun gitExec(workingDir: File, command: List<String>) {
+            val code = ProcessBuilder(command)
+                .directory(workingDir)
+                .inheritIO()
+                .start()
+                .waitFor()
+            if (code != 0) {
+                throw GradleException("命令失败（退出码 $code）：${command.joinToString(" ")}")
+            }
+        }
+
+        if (!gitDir.exists()) {
+            if (dir.exists()) {
+                val children = dir.listFiles()
+                if (children != null && children.isNotEmpty()) {
+                    throw GradleException(
+                        "${dir.absolutePath} 已存在且非空、但不是 git 仓库，请删除或清空后重试",
+                    )
+                }
+            }
+            val cmd = mutableListOf("git", "clone", "--depth", "1")
+            if (branch.isNotEmpty()) {
+                cmd.add("--branch")
+                cmd.add(branch)
+            }
+            cmd.add(cloneUrl)
+            cmd.add(dir.name)
+            gitExec(parent, cmd)
+        } else {
+            gitExec(dir, listOf("git", "pull", "--ff-only"))
+        }
+    }
+}
 
 tasks.register<Exec>("buildWikiWorkbenchWebNpm") {
     group = "SDE web"
     description =
-        "在 sde.workbenchNpmDir 执行 npm ci 与 npm run build:workbench（需本机 Node/npm）"
-    val npmRoot = layout.projectDirectory.dir(npmWorkbenchDirPath())
-    workingDir = npmRoot.asFile
+        "在 sde.workbenchNpmDir 执行 npm ci 与 npm run build:workbench（需本机 Node/npm；先由 prepareWikiWorkbenchGitRepo 拉取仓库）"
+    dependsOn("prepareWikiWorkbenchGitRepo")
+    val npmRootAbs =
+        layout.projectDirectory.dir(npmWorkbenchDirPath()).asFile.absoluteFile.normalize().path
+    workingDir = File(npmRootAbs)
     val win = System.getProperty("os.name").lowercase().contains("windows")
     if (win) {
         commandLine("cmd", "/c", "npm ci && npm run build:workbench")
