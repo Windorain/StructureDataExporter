@@ -1,36 +1,30 @@
 # StructureDataExporter
 
-面向 **GTNH** 的模组工程，与 **Structure Data Exporter（SDE）** 工作流配套：导出/管理结构数据，并在游戏内挂载 **Web 工作台** 静态页面。
+供 **GTNH** 等环境使用的 Minecraft **1.7.10** 模组，可以导出游戏内大部分的烘焙几何数据，用于网页端渲染。
 
-## 构建
 
-```powershell
-.\gradlew build
-```
 
-开发客户端：
+## 游戏内命令 `/sde`
 
-```powershell
-.\gradlew runClient
-```
+需要 **OP**。输入 `/sde` 无参数可查看帮助。
 
-## 工作台前端（WebStructureRenderer）
+| 子命令 | 说明 |
+|--------|------|
+| `pos1` | 对准方块，记录选区角点一。 |
+| `pos2` | 对准方块，记录选区角点二。 |
+| `start` | 开始一次导出会话。 |
+| `end` | 结束当前导出会话。 |
+| `setname` | 设置输出文件名（无后缀）。 |
+| `record` | 将当前选区写入活动帧。 |
+| `export` | 写出场景文件。 |
+| `web` | 启动本机 Web，聊天中给出链接与一次性口令。 |
+| `webstop` | 停止本机 Web 服务。 |
 
-静态资源位于 `src/main/resources/assets/structuredataexporter/web`。同步方式由 `gradle.properties` 中 `sde.workbenchSync` 控制：
+## 使用说明
 
-- **npm（默认）**：先 `git clone` / `git pull` 到目录 `dist-workbench/`（见 `sde.workbenchGitUrl` 等），再执行 `npm ci` 与 `npm run build:workbench`，最后拷贝产物。
-- **release**：从 GitHub Release 下载 zip（需已发版）。
+- 使用 `start` 开始导出会话
+- 使用 `pos1` 和 `pos2` 命令选定选区
+- 选区后必须 `record` 后才能 `export`
+- 使用 `web` 查看导出结果
 
-一键同步示例：
 
-```powershell
-.\gradlew copyWikiWorkbenchWeb
-```
-
-`dist-workbench/` 已列入 `.gitignore`，勿提交。
-
-前端仓库：<https://github.com/Windorain/WebStructureRenderer>
-
-## 许可
-
-见仓库根目录 `LICENSE`（MIT）。
