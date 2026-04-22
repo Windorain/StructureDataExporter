@@ -256,7 +256,6 @@ public final class MeshCaptureService {
                 /* 动态路径常已在内部 drawInstance；此时不再处于绘制中 */
             }
             if (quadsBeforeDraw == 0) {
-                TessellatorCaptureState.markInventoryFallbackForActiveCapture();
                 GL11.glPushMatrix();
                 try {
                     rb.renderBlockAsItem(b, blockMeta, 1.0F);

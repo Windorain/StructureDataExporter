@@ -128,7 +128,6 @@ public final class TileEntitySpecialRendererPostRenderStrategy implements MeshCa
             } finally {
                 TessellatorCaptureState.endDynamicExtensionVertexPhase();
             }
-            TessellatorCaptureState.markDynamicExtensionRenderForActiveCapture();
         } finally {
             TileEntityRendererDispatcher.staticPlayerX = spx;
             TileEntityRendererDispatcher.staticPlayerY = spy;

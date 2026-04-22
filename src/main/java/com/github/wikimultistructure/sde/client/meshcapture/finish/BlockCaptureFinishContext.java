@@ -4,7 +4,6 @@ import java.util.List;
 
 import net.minecraft.block.Block;
 
-import com.github.wikimultistructure.sde.client.meshcapture.CaptureGeometrySource;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
 
 import cpw.mods.fml.relauncher.Side;
@@ -21,16 +20,14 @@ public final class BlockCaptureFinishContext {
     private final Block captureBlock;
     private final int blockMeta;
     private final int renderType;
-    private final CaptureGeometrySource geometrySource;
     private final List<CapturedQuad> quads;
 
     public BlockCaptureFinishContext(String registryKey, Block captureBlock, int blockMeta, int renderType,
-        CaptureGeometrySource geometrySource, List<CapturedQuad> quads) {
+        List<CapturedQuad> quads) {
         this.registryKey = registryKey != null ? registryKey : "";
         this.captureBlock = captureBlock;
         this.blockMeta = blockMeta;
         this.renderType = renderType;
-        this.geometrySource = geometrySource != null ? geometrySource : CaptureGeometrySource.PRIMARY;
         this.quads = quads;
     }
 
@@ -48,10 +45,6 @@ public final class BlockCaptureFinishContext {
 
     public int getRenderType() {
         return renderType;
-    }
-
-    public CaptureGeometrySource getGeometrySource() {
-        return geometrySource;
     }
 
     public List<CapturedQuad> getQuads() {

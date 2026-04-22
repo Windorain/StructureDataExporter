@@ -205,7 +205,8 @@ public final class ExportTextureLocator {
         String path = normalizedLocator.substring(colon + 1);
         List<ResourceLocation> out = new ArrayList<>(2);
         if (path.startsWith("models/")) {
-            out.add(new ResourceLocation(ns, path + ".png"));
+            /* 与方块纹理一致：磁盘为 assets/<ns>/textures/models/...png，非 assets/<ns>/models/... */
+            out.add(new ResourceLocation(ns, "textures/" + path + ".png"));
             return out;
         }
         if (path.startsWith("materialicons/")) {
