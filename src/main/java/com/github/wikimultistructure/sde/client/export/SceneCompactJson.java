@@ -10,7 +10,8 @@ import com.google.gson.JsonObject;
 
 /**
  * 将终态 Raw 文档拆成明文 {@code meta} + gzip+Base64 {@code payload}。
- * 与 Wiki 侧约定一致：元数据只在 {@code meta}；{@code payload} 解压后为不含 id/label 等顶层元数据键的 body（仅 frames / cellGrid / palette / textureBlobs 等）。
+ * 与 Wiki 侧约定一致：元数据只在 {@code meta}；{@code payload} 解压后为不含 id/label 等顶层元数据键的 body（仅 frames / cellGrid / palette /
+ * textureBlobs 等）。
  */
 public final class SceneCompactJson {
 

@@ -9,11 +9,11 @@ import java.io.OutputStream;
 import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import com.github.wikimultistructure.sde.core.export.PendingDumpFiles;
@@ -117,8 +117,7 @@ public final class SdeWebServer {
         if (last != null) {
             throw last;
         }
-        throw new IOException(
-            "SDE Web: 无法绑定端口（自 " + base + " 起已尝试至 65535 或达 " + MAX_PORT_BIND_ATTEMPTS + " 次）");
+        throw new IOException("SDE Web: 无法绑定端口（自 " + base + " 起已尝试至 65535 或达 " + MAX_PORT_BIND_ATTEMPTS + " 次）");
     }
 
     private static boolean isBindFailure(IOException e) {
@@ -130,7 +129,8 @@ public final class SdeWebServer {
             String m = t.getMessage();
             if (m != null) {
                 String lower = m.toLowerCase(Locale.ROOT);
-                if (lower.contains("address already in use") || lower.contains("in use") || lower.contains("eaddrinuse")) {
+                if (lower.contains("address already in use") || lower.contains("in use")
+                    || lower.contains("eaddrinuse")) {
                     return true;
                 }
             }

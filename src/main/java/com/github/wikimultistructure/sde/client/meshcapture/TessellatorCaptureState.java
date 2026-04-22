@@ -24,7 +24,8 @@ import cpw.mods.fml.common.FMLLog;
  * [0,1]³。变换两步：
  * <ol>
  * <li>减 Tessellator {@code setTranslation}：缓冲内 xyz = addVertex 入参 + (xOffset,yOffset,zOffset)（见 MCP Tessellator）。</li>
- * <li>按 {@link CaptureCoordinatePolicy}：默认路径下<strong>每个四边形</strong>在两种原点下对 {@code [0,1]³} 的贴近程度选原点：对该 quad 的顶点（已去 Tessellator
+ * <li>按 {@link CaptureCoordinatePolicy}：默认路径下<strong>每个四边形</strong>在两种原点下对 {@code [0,1]³} 的贴近程度选原点：对该 quad 的顶点（已去
+ * Tessellator
  * offset）分别尝试减 {@code (0,0,0)} 与减世界角 {@code (wx,wy,wz)}，取使「到单位立方惩罚和」更小者；平票时取 {@code (0,0,0)}。</li>
  * </ol>
  * 使用<strong>全局</strong> {@link Frame} 而非 {@link ThreadLocal}，以便 GTNH Angelica 等
@@ -208,7 +209,12 @@ public final class TessellatorCaptureState {
             Frame f = CAPTURE;
             flushPartialQuad(f);
             BlockCaptureFinishRegistry.runAll(
-                new BlockCaptureFinishContext(f.registryKey, f.captureBlock, f.blockMeta, f.renderType, f.quadsForBlock));
+                new BlockCaptureFinishContext(
+                    f.registryKey,
+                    f.captureBlock,
+                    f.blockMeta,
+                    f.renderType,
+                    f.quadsForBlock));
             normalizeVerticesToBlockContract(f);
             f.active = false;
             target.x = f.blockX;
@@ -224,8 +230,8 @@ public final class TessellatorCaptureState {
         if (f.quadsForBlock.isEmpty()) {
             return;
         }
-        CaptureCoordinatePolicy.Kind kind = CaptureCoordinatePolicy.resolve(f.captureBlock, f.blockMeta, f.renderType,
-            f.registryKey);
+        CaptureCoordinatePolicy.Kind kind = CaptureCoordinatePolicy
+            .resolve(f.captureBlock, f.blockMeta, f.renderType, f.registryKey);
 
         List<CapturedQuad> rebuilt = new ArrayList<>(f.quadsForBlock.size());
         for (CapturedQuad q : f.quadsForBlock) {

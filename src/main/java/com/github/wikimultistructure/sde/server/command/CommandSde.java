@@ -135,8 +135,7 @@ public class CommandSde extends CommandBase {
                         + tok;
 
                     ChatComponentText webLine = new ChatComponentText("[SDE] ");
-                    webLine.appendSibling(
-                        sdeClickableLink("点我打开工作区", workbenchUrl, "在浏览器中打开工作台"));
+                    webLine.appendSibling(sdeClickableLink("点我打开工作区", workbenchUrl, "在浏览器中打开工作台"));
                     sender.addChatMessage(webLine);
                     break;
                 }
@@ -167,8 +166,7 @@ public class CommandSde extends CommandBase {
         int z = MathHelper.floor_double(player.posZ);
         s.setPos1Block(x, y, z);
         SdeNetwork.sendSelectionSync(player);
-        player.addChatMessage(
-            new ChatComponentText("SDE: pos1 已记录（" + x + ", " + y + ", " + z + "，脚下方块）"));
+        player.addChatMessage(new ChatComponentText("SDE: pos1 已记录（" + x + ", " + y + ", " + z + "，脚下方块）"));
     }
 
     private static void applyPos2FromPlayerBlock(EntityPlayerMP player, ExportSession s) {
@@ -181,8 +179,7 @@ public class CommandSde extends CommandBase {
         int z = MathHelper.floor_double(player.posZ);
         s.setPos2Block(x, y, z);
         SdeNetwork.sendSelectionSync(player);
-        player.addChatMessage(
-            new ChatComponentText("SDE: pos2 已记录（" + x + ", " + y + ", " + z + "，脚下方块）"));
+        player.addChatMessage(new ChatComponentText("SDE: pos2 已记录（" + x + ", " + y + ", " + z + "，脚下方块）"));
     }
 
     /** 与 WorldEdit {@code //hpos1} 一致：准星指向的方块。 */
