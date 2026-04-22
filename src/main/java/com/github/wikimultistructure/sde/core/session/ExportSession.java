@@ -72,14 +72,18 @@ public final class ExportSession {
         return inSession;
     }
 
-    /** 准星指向的方块角点（pos1），与创世神式选区一致。 */
+    /**
+     * 选区角点一；可由 {@code /sde pos1}（脚下方块，对齐 WorldEdit {@code //pos1}）、{@code /sde hpos1} 或选区工具左键等设置。
+     */
     public void setPos1Block(int x, int y, int z) {
         pos1x = x;
         pos1y = y;
         pos1z = z;
     }
 
-    /** 准星指向的方块角点（pos2）。 */
+    /**
+     * 选区角点二；可由 {@code /sde pos2}、{@code /sde hpos2} 或选区工具右键等设置。
+     */
     public void setPos2Block(int x, int y, int z) {
         pos2x = x;
         pos2y = y;
@@ -149,7 +153,7 @@ public final class ExportSession {
 
     public void record(EntityPlayerMP player) {
         if (!hasCompleteSelection()) {
-            throw new IllegalStateException("请先 /sde pos1 与 /sde pos2（对准方块）");
+            throw new IllegalStateException("请先 /sde pos1 与 /sde pos2（或 hpos/选区工具）");
         }
         World world = player.worldObj;
         lastAuthor = player.getCommandSenderName();

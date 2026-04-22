@@ -11,7 +11,7 @@ import net.minecraft.event.HoverEvent;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
-import net.minecraft.util.IChatComponent;
+import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 
 import com.github.wikimultistructure.sde.core.session.ExportSession;
@@ -29,7 +29,7 @@ public class CommandSde extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/sde <pos1|pos2|start|end|setName|setFrame|setStructureId|record|export [raw]|dump|status|web [port]|webstop>";
+        return "/sde <pos1|pos2|hpos1|hpos2|start|end|setName|setFrame|setStructureId|record|export [raw]|dump|status|web [port]|webstop>";
     }
 
     @Override
@@ -49,9 +49,17 @@ public class CommandSde extends CommandBase {
             switch (sub) {
                 case "pos1":
                     if (!checkPlayer(sender)) return;
-                    applyPos1FromRay((EntityPlayerMP) sender, s);
+                    applyPos1FromPlayerBlock((EntityPlayerMP) sender, s);
                     break;
                 case "pos2":
+                    if (!checkPlayer(sender)) return;
+                    applyPos2FromPlayerBlock((EntityPlayerMP) sender, s);
+                    break;
+                case "hpos1":
+                    if (!checkPlayer(sender)) return;
+                    applyPos1FromRay((EntityPlayerMP) sender, s);
+                    break;
+                case "hpos2":
                     if (!checkPlayer(sender)) return;
                     applyPos2FromRay((EntityPlayerMP) sender, s);
                     break;
@@ -117,10 +125,6 @@ public class CommandSde extends CommandBase {
                         .replace("-", "");
                     SdeWebServer.start(port, tok);
                     int boundPort = SdeWebServer.getBoundPort();
-                    if (boundPort != port) {
-                        sender.addChatMessage(
-                            new ChatComponentText("SDE: 端口 " + port + " 已被占用，Web 已使用 " + boundPort));
-                    }
                     // 勿用 MinecraftServer.getServerHostname()/getHostname()：1.7.10 上为 @SideOnly(SERVER)，
                     // 集成服客户端环境会 NoSuchMethodError。本机浏览器用回环即可；远程访问请自行换为机器局域网 IP。
                     String host = "127.0.0.1";
@@ -130,27 +134,10 @@ public class CommandSde extends CommandBase {
                         + "&token="
                         + tok;
 
-                    IChatComponent webLine = new ChatComponentText("");
-                    webLine.appendSibling(new ChatComponentText("SDE Web "));
-                    webLine.appendSibling(sdeClickableLink("[根地址]", base, "浏览器打开 " + base));
-                    webLine.appendSibling(new ChatComponentText("  "));
-                    webLine.appendSibling(sdeClickableLink("[工作台]", workbenchUrl, "浏览器打开工作台（含 token）"));
+                    ChatComponentText webLine = new ChatComponentText("[SDE] ");
+                    webLine.appendSibling(
+                        sdeClickableLink("点我打开工作区", workbenchUrl, "在浏览器中打开工作台"));
                     sender.addChatMessage(webLine);
-
-                    IChatComponent tokLine = new ChatComponentText("");
-                    tokLine.appendSibling(new ChatComponentText("SDE Token（Bearer） "));
-                    ChatComponentText tokHover = new ChatComponentText("[悬停查看]");
-                    tokHover.setChatStyle(
-                        new ChatStyle()
-                            .setChatHoverEvent(
-                                new HoverEvent(
-                                    HoverEvent.Action.SHOW_TEXT,
-                                    new ChatComponentText("Authorization: Bearer " + tok + "\n\n全文：\n" + tok)))
-                            .setColor(EnumChatFormatting.GRAY));
-                    tokLine.appendSibling(tokHover);
-                    tokLine.appendSibling(new ChatComponentText(" "));
-                    tokLine.appendSibling(sdeSuggestToken("[填入聊天栏]", tok));
-                    sender.addChatMessage(tokLine);
                     break;
                 }
                 case "webstop":
@@ -167,6 +154,38 @@ public class CommandSde extends CommandBase {
         }
     }
 
+    /**
+     * 与 WorldEdit {@code //pos1} 一致：取玩家脚下方块坐标（体素化位置），不依赖准星。
+     */
+    private static void applyPos1FromPlayerBlock(EntityPlayerMP player, ExportSession s) {
+        if (!SdePermissions.canUseSde(player)) {
+            player.addChatMessage(new ChatComponentText("SDE: 需要 OP 权限"));
+            return;
+        }
+        int x = MathHelper.floor_double(player.posX);
+        int y = MathHelper.floor_double(player.posY);
+        int z = MathHelper.floor_double(player.posZ);
+        s.setPos1Block(x, y, z);
+        SdeNetwork.sendSelectionSync(player);
+        player.addChatMessage(
+            new ChatComponentText("SDE: pos1 已记录（" + x + ", " + y + ", " + z + "，脚下方块）"));
+    }
+
+    private static void applyPos2FromPlayerBlock(EntityPlayerMP player, ExportSession s) {
+        if (!SdePermissions.canUseSde(player)) {
+            player.addChatMessage(new ChatComponentText("SDE: 需要 OP 权限"));
+            return;
+        }
+        int x = MathHelper.floor_double(player.posX);
+        int y = MathHelper.floor_double(player.posY);
+        int z = MathHelper.floor_double(player.posZ);
+        s.setPos2Block(x, y, z);
+        SdeNetwork.sendSelectionSync(player);
+        player.addChatMessage(
+            new ChatComponentText("SDE: pos2 已记录（" + x + ", " + y + ", " + z + "，脚下方块）"));
+    }
+
+    /** 与 WorldEdit {@code //hpos1} 一致：准星指向的方块。 */
     private static void applyPos1FromRay(EntityPlayerMP player, ExportSession s) {
         if (!SdePermissions.canUseSde(player)) {
             player.addChatMessage(new ChatComponentText("SDE: 需要 OP 权限"));
@@ -179,7 +198,7 @@ public class CommandSde extends CommandBase {
         }
         s.setPos1Block(mop.blockX, mop.blockY, mop.blockZ);
         SdeNetwork.sendSelectionSync(player);
-        player.addChatMessage(new ChatComponentText("SDE: pos1 已记录（方块）"));
+        player.addChatMessage(new ChatComponentText("SDE: hpos1 已记录（准星方块）"));
     }
 
     private static void applyPos2FromRay(EntityPlayerMP player, ExportSession s) {
@@ -194,7 +213,7 @@ public class CommandSde extends CommandBase {
         }
         s.setPos2Block(mop.blockX, mop.blockY, mop.blockZ);
         SdeNetwork.sendSelectionSync(player);
-        player.addChatMessage(new ChatComponentText("SDE: pos2 已记录（方块）"));
+        player.addChatMessage(new ChatComponentText("SDE: hpos2 已记录（准星方块）"));
     }
 
     private static boolean checkPlayer(ICommandSender sender) {
@@ -227,17 +246,6 @@ public class CommandSde extends CommandBase {
                 .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(hover)))
                 .setUnderlined(true)
                 .setColor(EnumChatFormatting.AQUA));
-        return t;
-    }
-
-    private static ChatComponentText sdeSuggestToken(String label, String token) {
-        ChatComponentText t = new ChatComponentText(label);
-        t.setChatStyle(
-            new ChatStyle().setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, token))
-                .setChatHoverEvent(
-                    new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("点击将 token 填入聊天栏")))
-                .setUnderlined(true)
-                .setColor(EnumChatFormatting.GREEN));
         return t;
     }
 }
