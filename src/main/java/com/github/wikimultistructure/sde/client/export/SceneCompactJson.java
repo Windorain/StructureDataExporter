@@ -9,7 +9,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 /**
- * 将终态 Raw 文档拆成明文 {@code meta} + gzip+Base64 {@code payload}，与 Wiki {@code normalizeSceneDocumentForWiki} 对称。
+ * 将终态 Raw 文档拆成明文 {@code meta} + gzip+Base64 {@code payload}。
+ * 与 Wiki 侧约定一致：元数据只在 {@code meta}；{@code payload} 解压后为不含 id/label 等顶层元数据键的 body（仅 frames / cellGrid / palette / textureBlobs 等）。
  */
 public final class SceneCompactJson {
 
@@ -29,6 +30,7 @@ public final class SceneCompactJson {
             copyIfPresent(rawFinal, meta, "label");
             copyIfPresent(rawFinal, meta, "author");
             copyIfPresent(rawFinal, meta, "gtnhVersion");
+            copyIfPresent(rawFinal, meta, "structureId");
             copyIfPresent(rawFinal, meta, "description");
             copyIfPresent(rawFinal, meta, "modSource");
             copyIfPresent(rawFinal, meta, "playback");
@@ -43,6 +45,7 @@ public final class SceneCompactJson {
             copyIfPresent(rawFinal, meta, "label");
             copyIfPresent(rawFinal, meta, "author");
             copyIfPresent(rawFinal, meta, "gtnhVersion");
+            copyIfPresent(rawFinal, meta, "structureId");
             copyIfPresent(rawFinal, meta, "description");
             copyIfPresent(rawFinal, meta, "modSource");
             copyIfPresent(rawFinal, meta, "globalConfig");
