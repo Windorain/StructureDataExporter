@@ -163,7 +163,7 @@ tasks.register("fetchWikiWorkbenchWebRelease") {
     }
 }
 
-tasks.register<Copy>("copyWikiWorkbenchWeb") {
+tasks.register<Copy>("syncWeb") {
     group = "SDE web"
     description = "将 dist-workbench 内容拷贝到 resources（npm 构建 或 release 下载，由 sde.workbenchSync 决定）"
     duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.INCLUDE
@@ -180,8 +180,4 @@ tasks.register<Copy>("copyWikiWorkbenchWeb") {
     }
 }
 
-tasks.register("syncWikiWorkbenchWeb") {
-    group = "SDE web"
-    description = "与 copyWikiWorkbenchWeb 相同（别名，便于记忆）"
-    dependsOn("copyWikiWorkbenchWeb")
-}
+
