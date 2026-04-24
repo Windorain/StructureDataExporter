@@ -5,6 +5,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.play.server.S23PacketBlockChange;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.World;
 
@@ -38,6 +39,11 @@ public class ItemSdeSelectionTool extends Item {
         ExportSession.get()
             .setPos1Block(x, y, z);
         SdeNetwork.sendSelectionSync(mp);
+        /*
+         * 创造模式左键客户端常会乐观“打碎”方块，而服务端因本方法 return true 已取消采掘，格子上仍为原方块。
+         * 与 Forge 取消交互时一致：对该玩家下发 S23，用服务端世界状态强制回写，避免人端与世界不同步。
+         */
+        mp.playerNetServerHandler.sendPacket(new S23PacketBlockChange(x, y, z, mp.worldObj));
         mp.addChatMessage(new ChatComponentText("SDE: pos1 已记录（方块）"));
         return true;
     }
