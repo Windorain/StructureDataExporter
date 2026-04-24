@@ -15,6 +15,7 @@ import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 
 import com.github.wikimultistructure.sde.core.session.ExportSession;
+import com.github.wikimultistructure.sde.core.session.SdeSelectionMode;
 import com.github.wikimultistructure.sde.core.util.RayTraceUtil;
 import com.github.wikimultistructure.sde.network.SdeNetwork;
 import com.github.wikimultistructure.sde.server.SdePermissions;
@@ -29,7 +30,7 @@ public class CommandSde extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/sde <pos1|pos2|hpos1|hpos2|start|end|setName|setFrame|setStructureId|record|export [raw]|dump|status|web [port]|webstop>";
+        return "/sde <pos1|pos2|hpos1|hpos2|sel [cuboid|extend]|start|end|setName|setFrame|setStructureId|record|export [raw]|dump|status|web [port]|webstop>";
     }
 
     @Override
@@ -63,6 +64,29 @@ public class CommandSde extends CommandBase {
                     if (!checkPlayer(sender)) return;
                     applyPos2FromRay((EntityPlayerMP) sender, s);
                     break;
+                case "sel": {
+                    SdeSelectionMode mode = SdeSelectionMode.CUBOID;
+                    if (args.length >= 2) {
+                        String a = args[1].toLowerCase();
+                        if ("extend".equals(a)) {
+                            mode = SdeSelectionMode.EXTEND;
+                        } else if (!"cuboid".equals(a)) {
+                            sender.addChatMessage(
+                                new ChatComponentText("SDE: 用法: /sde sel [cuboid|extend]（默認 cuboid）"));
+                            return;
+                        }
+                    }
+                    s.setSelectionMode(mode);
+                    sender.addChatMessage(
+                        new ChatComponentText(
+                            "SDE: 选区模式="
+                                + mode
+                                + "（cuboid=两角点；extend=新点并入并扩张 AABB，对齐 //sel）"));
+                    if (sender instanceof EntityPlayerMP) {
+                        SdeNetwork.sendSelectionSync((EntityPlayerMP) sender);
+                    }
+                    break;
+                }
                 case "start":
                     s.startSession();
                     sender.addChatMessage(new ChatComponentText("SDE: 会话已开始"));

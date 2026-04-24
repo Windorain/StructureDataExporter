@@ -57,6 +57,7 @@ public final class ExportSession {
     private IBlockSampler sampler = new PolicyBackedBlockSampler();
     private String lastAuthor = "server";
     private String lastGtnhVersion = "";
+    private SdeSelectionMode selectionMode = SdeSelectionMode.CUBOID;
 
     private ExportSession() {}
 
@@ -72,22 +73,85 @@ public final class ExportSession {
         return inSession;
     }
 
+    public SdeSelectionMode getSelectionMode() {
+        return selectionMode;
+    }
+
+    public void setSelectionMode(SdeSelectionMode mode) {
+        this.selectionMode = mode != null ? mode : SdeSelectionMode.CUBOID;
+    }
+
     /**
      * 选区角点一；可由 {@code /sde pos1}（脚下方块，对齐 WorldEdit {@code //pos1}）、{@code /sde hpos1} 或选区工具左键等设置。
+     * <p>
+     * {@link SdeSelectionMode#EXTEND}：与 WorldEdit 扩展长方体类似，在已有 AABB 上并入驻入点；首次无选区时记为 1×1×1 角点。
      */
     public void setPos1Block(int x, int y, int z) {
-        pos1x = x;
-        pos1y = y;
-        pos1z = z;
+        if (selectionMode == SdeSelectionMode.EXTEND) {
+            applyExtendPoint(x, y, z);
+        } else {
+            pos1x = x;
+            pos1y = y;
+            pos1z = z;
+        }
     }
 
     /**
      * 选区角点二；可由 {@code /sde pos2}、{@code /sde hpos2} 或选区工具右键等设置。
+     * <p>
+     * {@link SdeSelectionMode#EXTEND} 下语义与 pos1 相同，均为向当前选区并入该方块坐标。
      */
     public void setPos2Block(int x, int y, int z) {
-        pos2x = x;
-        pos2y = y;
-        pos2z = z;
+        if (selectionMode == SdeSelectionMode.EXTEND) {
+            applyExtendPoint(x, y, z);
+        } else {
+            pos2x = x;
+            pos2y = y;
+            pos2z = z;
+        }
+    }
+
+    /**
+     * WorldEdit 式 extend：新点并入选区长方体，结果存为 min→pos1、max→pos2。
+     */
+    private void applyExtendPoint(int x, int y, int z) {
+        if (pos1x == null) {
+            pos1x = x;
+            pos1y = y;
+            pos1z = z;
+            pos2x = x;
+            pos2y = y;
+            pos2z = z;
+            return;
+        }
+        if (pos2x == null) {
+            pos2x = x;
+            pos2y = y;
+            pos2z = z;
+            return;
+        }
+        expandAabbToInclude(x, y, z);
+    }
+
+    private void expandAabbToInclude(int x, int y, int z) {
+        int mix = Math.min(pos1x, pos2x);
+        int miy = Math.min(pos1y, pos2y);
+        int miz = Math.min(pos1z, pos2z);
+        int mxx = Math.max(pos1x, pos2x);
+        int mxy = Math.max(pos1y, pos2y);
+        int mxz = Math.max(pos1z, pos2z);
+        mix = Math.min(mix, x);
+        miy = Math.min(miy, y);
+        miz = Math.min(miz, z);
+        mxx = Math.max(mxx, x);
+        mxy = Math.max(mxy, y);
+        mxz = Math.max(mxz, z);
+        pos1x = mix;
+        pos1y = miy;
+        pos1z = miz;
+        pos2x = mxx;
+        pos2y = mxy;
+        pos2z = mxz;
     }
 
     public boolean hasCompleteSelection() {
@@ -138,8 +202,9 @@ public final class ExportSession {
 
     public String statusLine() {
         return String.format(
-            "session=%s pos1=%s pos2=%s activeFrame=%d recordedFrames=%s",
+            "session=%s sel=%s pos1=%s pos2=%s activeFrame=%d recordedFrames=%s",
             inSession,
+            selectionMode,
             posStr(pos1x, pos1y, pos1z),
             posStr(pos2x, pos2y, pos2z),
             activeFrame,
