@@ -183,10 +183,44 @@ public final class ExportTextureLocator {
         while (path.startsWith("textures/")) {
             path = path.substring("textures/".length());
         }
+        /* 1.7.10 中许多 {@link IIcon#getIconName()} 为 modid:baseName:worldMeta，磁盘 PNG 无 :meta 后缀。仅剥去 0–15
+         * 的尾段，避免误伤 GregTech 等 {@code mID} 四位数。见 debug：ic2:blockAlloyGlass:0 → .../blockAlloyGlass.png。 */
+        path = stripWorldMetaSuffixInPathForBundle(path);
         if (!pathHasExplicitTextureRoot(path)) {
             path = "blocks/" + path;
         }
         return ns + ":" + path;
+    }
+
+    /**
+     * 若 path 中<b>仅有一个</b> {@code :} 且其右侧为 0..15 的十进制，则视为世界 meta 并去掉
+     * {@code :N}；否则原样返回（多段 : 或 mID>15 不剥）。
+     */
+    static String stripWorldMetaSuffixInPathForBundle(String path) {
+        if (path == null || path.isEmpty()) {
+            return path;
+        }
+        int c = path.indexOf(':');
+        if (c < 0) {
+            return path;
+        }
+        if (path.indexOf(':', c + 1) >= 0) {
+            return path;
+        }
+        String tail = path.substring(c + 1);
+        if (!tail.matches("[0-9]+")) {
+            return path;
+        }
+        int meta;
+        try {
+            meta = Integer.parseInt(tail, 10);
+        } catch (NumberFormatException e) {
+            return path;
+        }
+        if (meta < 0 || meta > 15) {
+            return path;
+        }
+        return path.substring(0, c);
     }
 
     /**
