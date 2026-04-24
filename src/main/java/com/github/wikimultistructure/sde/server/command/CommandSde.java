@@ -188,7 +188,7 @@ public class CommandSde extends CommandBase {
             player.addChatMessage(new ChatComponentText("SDE: 需要 OP 权限"));
             return;
         }
-        MovingObjectPosition mop = RayTraceUtil.rayTraceBlock(player, RayTraceUtil.DEFAULT_REACH);
+        MovingObjectPosition mop = RayTraceUtil.rayTraceBlock(player);
         if (!RayTraceUtil.isBlockHit(mop)) {
             player.addChatMessage(new ChatComponentText("SDE: 未指向方块"));
             return;
@@ -203,7 +203,7 @@ public class CommandSde extends CommandBase {
             player.addChatMessage(new ChatComponentText("SDE: 需要 OP 权限"));
             return;
         }
-        MovingObjectPosition mop = RayTraceUtil.rayTraceBlock(player, RayTraceUtil.DEFAULT_REACH);
+        MovingObjectPosition mop = RayTraceUtil.rayTraceBlock(player);
         if (!RayTraceUtil.isBlockHit(mop)) {
             player.addChatMessage(new ChatComponentText("SDE: 未指向方块"));
             return;
