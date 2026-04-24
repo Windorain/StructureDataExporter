@@ -39,6 +39,7 @@ public final class SceneCompactJson {
             copyIfPresent(rawFinal, meta, "schemaVersion");
             copyIfPresent(rawFinal, inner, "frames");
             copyIfPresent(rawFinal, inner, "textureBlobs");
+            copyIfPresent(rawFinal, inner, "tooltipPalette");
         } else {
             copyIfPresent(rawFinal, meta, "geometryPhase");
             copyIfPresent(rawFinal, meta, "mode");
@@ -58,7 +59,10 @@ public final class SceneCompactJson {
             copyIfPresent(rawFinal, inner, "blockPalette");
             copyIfPresent(rawFinal, inner, "materialPalette");
             copyIfPresent(rawFinal, inner, "cellGrid");
+            copyIfPresent(rawFinal, inner, "cellTooltipGrid");
+            copyIfPresent(rawFinal, inner, "sdeCellNotes");
             copyIfPresent(rawFinal, inner, "textureBlobs");
+            copyIfPresent(rawFinal, inner, "tooltipPalette");
         }
         byte[] utf8 = COMPACT_GSON.toJson(inner)
             .getBytes(StandardCharsets.UTF_8);

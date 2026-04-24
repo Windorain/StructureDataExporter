@@ -19,4 +19,9 @@ public class CommonProxy implements IProxy {
     public void enqueueMeshCapturePayload(String fileName, byte[] utf8Json, boolean writeRaw) {
         // 仅客户端处理
     }
+
+    @Override
+    public void openCellNoteEditor(int frameIndex, int zSlice, int row, int column, String initialText) {
+        // 仅客户端
+    }
 }

@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -54,6 +55,11 @@ public final class ExportSession {
     private String structureId = "structuredata.exported";
     private int activeFrame;
     private final Map<Integer, String> frameJson = new TreeMap<>();
+    /**
+     * 活动帧 / 各帧内体素备注：键为 {@link SdeCellCoords#cellKey(int, int, int)}，供 Wiki {@code sdeCellNotes} → 烘焙后
+     * {@code tooltipPalette}/{@code cellTooltipGrid}。
+     */
+    private final Map<Integer, Map<String, String>> cellNotesByFrame = new HashMap<>();
     private IBlockSampler sampler = new PolicyBackedBlockSampler();
     private String lastAuthor = "server";
     private String lastGtnhVersion = "";
@@ -196,6 +202,97 @@ public final class ExportSession {
         return activeFrame;
     }
 
+    /** 当前帧、体素格备注；无则空串 */
+    public String getCellNote(int frameIndex, int zSlice, int row, int column) {
+        Map<String, String> m = cellNotesByFrame.get(frameIndex);
+        if (m == null) {
+            return "";
+        }
+        String k = SdeCellCoords.cellKey(zSlice, row, column);
+        String v = m.get(k);
+        return v != null ? v : "";
+    }
+
+    /** 保存或清除（text 空白则删） */
+    public void setCellNote(int frameIndex, int zSlice, int row, int column, String text) {
+        Map<String, String> m = cellNotesByFrame.get(frameIndex);
+        if (m == null) {
+            m = new HashMap<>();
+            cellNotesByFrame.put(frameIndex, m);
+        }
+        String k = SdeCellCoords.cellKey(zSlice, row, column);
+        if (text == null || text.trim()
+            .isEmpty()) {
+            m.remove(k);
+        } else {
+            m.put(k, text);
+        }
+    }
+
+    /**
+     * 将内存中的备注写入 scan 根对象（字段名 {@code sdeCellNotes}），与 {@code cellGrid} 同形语义；供客户端烘焙或再次导出。
+     */
+    public void applyCellNotesToScanJson(JsonObject root, int frameIndex) {
+        if (root == null) {
+            return;
+        }
+        if (!root.has("cellGrid")) {
+            return;
+        }
+        int[] dim = readScanCellGridDimensions(root.getAsJsonArray("cellGrid"));
+        if (dim == null) {
+            return;
+        }
+        int sizeZ = dim[0], sizeRow = dim[1], sizeCol = dim[2];
+        Map<String, String> m = cellNotesByFrame.get(frameIndex);
+        JsonObject noteObj = new JsonObject();
+        if (m != null) {
+            for (Map.Entry<String, String> e : m.entrySet()) {
+                int[] zrc = SdeCellCoords.tryParseCellKey(e.getKey());
+                if (zrc == null) {
+                    continue;
+                }
+                if (zrc[0] < 0
+                    || zrc[0] >= sizeZ
+                    || zrc[1] < 0
+                    || zrc[1] >= sizeRow
+                    || zrc[2] < 0
+                    || zrc[2] >= sizeCol) {
+                    continue;
+                }
+                String t = e.getValue();
+                if (t == null || t.isEmpty()) {
+                    continue;
+                }
+                noteObj.addProperty(e.getKey(), t);
+            }
+        }
+        if (noteObj.entrySet()
+            .isEmpty()) {
+            root.remove("sdeCellNotes");
+        } else {
+            root.add("sdeCellNotes", noteObj);
+        }
+    }
+
+    private static int[] readScanCellGridDimensions(JsonArray cellGrid) {
+        if (cellGrid == null || cellGrid.size() == 0) {
+            return null;
+        }
+        try {
+            int sizeZ = cellGrid.size();
+            JsonArray row0 = cellGrid.get(0)
+                .getAsJsonArray();
+            int sizeRow = row0.size();
+            int sizeCol = row0.get(0)
+                .getAsJsonArray()
+                .size();
+            return new int[] { sizeZ, sizeRow, sizeCol };
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public void setSampler(IBlockSampler sampler) {
         if (sampler != null) this.sampler = sampler;
     }
@@ -225,6 +322,7 @@ public final class ExportSession {
         lastGtnhVersion = PackVersionProbe.tryPackVersionString();
         JsonObject obj = StructureScan
             .scanToStructureJson(world, pos1x, pos1y, pos1z, pos2x, pos2y, pos2z, structureId, sampler, player);
+        applyCellNotesToScanJson(obj, activeFrame);
         frameJson.put(activeFrame, GSON.toJson(obj));
     }
 
@@ -243,7 +341,7 @@ public final class ExportSession {
         }
 
         if (frameJson.size() == 1 && frameJson.containsKey(0)) {
-            String json = frameJson.get(0);
+            String json = patchFrameJsonForExport(0, frameJson.get(0));
             writeUtf8(out, json);
         } else {
             JsonObject worldDocument = new JsonObject();
@@ -253,12 +351,13 @@ public final class ExportSession {
             worldDocument.addProperty("author", lastAuthor);
             worldDocument.addProperty("gtnhVersion", lastGtnhVersion);
             worldDocument.add("description", JsonNull.INSTANCE);
+            worldDocument.add("tooltipPalette", new JsonArray());
             JsonArray frames = new JsonArray();
             JsonParser parser = new JsonParser();
             for (Map.Entry<Integer, String> e : frameJson.entrySet()) {
                 JsonObject fr = new JsonObject();
                 fr.addProperty("index", e.getKey());
-                JsonObject nested = parser.parse(e.getValue())
+                JsonObject nested = parser.parse(patchFrameJsonForExport(e.getKey(), e.getValue()))
                     .getAsJsonObject();
                 fr.add("structure", nested);
                 frames.add(fr);
@@ -293,6 +392,17 @@ public final class ExportSession {
     private static void writeUtf8(File file, String content) throws IOException {
         try (OutputStreamWriter w = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
             w.write(content);
+        }
+    }
+
+    private String patchFrameJsonForExport(int frameIndex, String rawJson) {
+        try {
+            JsonObject root = new JsonParser().parse(rawJson)
+                .getAsJsonObject();
+            applyCellNotesToScanJson(root, frameIndex);
+            return GSON.toJson(root);
+        } catch (Exception e) {
+            return rawJson;
         }
     }
 }

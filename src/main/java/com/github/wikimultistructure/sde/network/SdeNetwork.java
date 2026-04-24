@@ -6,6 +6,10 @@ import com.github.wikimultistructure.sde.core.session.ExportSession;
 import com.github.wikimultistructure.sde.core.session.SelectionSnapshot;
 import com.github.wikimultistructure.sde.network.packet.PacketEnrichExportedScene;
 import com.github.wikimultistructure.sde.network.packet.PacketEnrichExportedSceneHandler;
+import com.github.wikimultistructure.sde.network.packet.PacketOpenCellNote;
+import com.github.wikimultistructure.sde.network.packet.PacketOpenCellNoteHandler;
+import com.github.wikimultistructure.sde.network.packet.PacketSaveCellNote;
+import com.github.wikimultistructure.sde.network.packet.PacketSaveCellNoteHandler;
 import com.github.wikimultistructure.sde.network.packet.PacketSyncSelection;
 import com.github.wikimultistructure.sde.network.packet.PacketSyncSelectionHandler;
 
@@ -36,6 +40,26 @@ public final class SdeNetwork {
         channel.registerMessage(PacketSyncSelectionHandler.class, PacketSyncSelection.class, 0, Side.CLIENT);
         channel
             .registerMessage(PacketEnrichExportedSceneHandler.class, PacketEnrichExportedScene.class, 1, Side.CLIENT);
+        channel.registerMessage(PacketOpenCellNoteHandler.class, PacketOpenCellNote.class, 2, Side.CLIENT);
+        channel.registerMessage(PacketSaveCellNoteHandler.class, PacketSaveCellNote.class, 3, Side.SERVER);
+    }
+
+    public static boolean isReady() {
+        return channel != null;
+    }
+
+    public static void sendOpenCellNote(EntityPlayerMP player, int frame, int zSlice, int row, int col, String initial) {
+        if (channel == null) {
+            return;
+        }
+        channel.sendTo(new PacketOpenCellNote(frame, zSlice, row, col, initial), player);
+    }
+
+    public static void sendSaveCellNoteToServer(PacketSaveCellNote packet) {
+        if (channel == null) {
+            return;
+        }
+        channel.sendToServer(packet);
     }
 
     public static void sendSelectionSync(EntityPlayerMP player) {

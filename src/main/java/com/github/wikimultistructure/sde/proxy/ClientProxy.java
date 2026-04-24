@@ -2,7 +2,10 @@ package com.github.wikimultistructure.sde.proxy;
 
 import net.minecraftforge.common.MinecraftForge;
 
+import net.minecraft.client.Minecraft;
+
 import com.github.wikimultistructure.sde.client.SelectionClientState;
+import com.github.wikimultistructure.sde.client.gui.GuiSdeCellNote;
 import com.github.wikimultistructure.sde.client.automation.SdeClientAutomationTickHandler;
 import com.github.wikimultistructure.sde.client.export.ExportBundleTickHandler;
 import com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureClient;
@@ -37,5 +40,17 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void enqueueMeshCapturePayload(String fileName, byte[] utf8Json, boolean writeRaw) {
         MeshCaptureClient.enqueuePayload(fileName, utf8Json, writeRaw);
+    }
+
+    @Override
+    public void openCellNoteEditor(int frameIndex, int zSlice, int row, int column, String initialText) {
+        Minecraft.getMinecraft()
+            .displayGuiScreen(
+                new GuiSdeCellNote(
+                    frameIndex,
+                    zSlice,
+                    row,
+                    column,
+                    initialText));
     }
 }

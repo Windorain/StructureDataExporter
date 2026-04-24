@@ -40,6 +40,7 @@ import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptu
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderRegistry;
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureContext;
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureRegistry;
+import com.github.wikimultistructure.sde.core.session.SdeCellCoords;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
 import com.github.wikimultistructure.sde.mixin.interfaces.accessors.TextureMapAccessor;
 import com.google.gson.JsonArray;
@@ -134,6 +135,10 @@ public final class MeshCaptureService {
                     finalizeSingleStructure(fr.getAsJsonObject("structure"));
                 }
             }
+            integrateSdeCellNotesWorldRoot(root);
+            if (!root.has("tooltipPalette")) {
+                root.add("tooltipPalette", new com.google.gson.JsonArray());
+            }
             TextureBlobEmbedder.embedIntoDocument(root);
             return;
         }
@@ -141,6 +146,7 @@ public final class MeshCaptureService {
             root.get("geometryPhase")
                 .getAsString())) {
             finalizeSingleStructure(root);
+            integrateSdeCellNotesSingleBakedRoot(root);
             TextureBlobEmbedder.embedIntoDocument(root);
             return;
         }
@@ -150,6 +156,157 @@ public final class MeshCaptureService {
             && !root.has("textureBlobs")) {
             TextureBlobEmbedder.embedIntoDocument(root);
         }
+    }
+
+    /**
+     * 将 scan 中 {@code sdeCellNotes} 并入库根 {@code tooltipPalette} + 各帧 {@code cellTooltipGrid}，再移除临时字段（与
+     * WebStructureRenderer 一致）。
+     */
+    private static void integrateSdeCellNotesWorldRoot(JsonObject worldRoot) {
+        if (worldRoot == null || !worldRoot.has("frames")) {
+            return;
+        }
+        JsonArray frames = worldRoot.getAsJsonArray("frames");
+        List<String> palette = new ArrayList<>();
+        Map<String, Integer> stringToIndex = new HashMap<>();
+        for (int i = 0; i < frames.size(); i++) {
+            JsonObject fr = frames.get(i)
+                .getAsJsonObject();
+            if (!fr.has("structure")) {
+                continue;
+            }
+            JsonObject st = fr.getAsJsonObject("structure");
+            collectSdeNoteStringsForPalette(st.get("sdeCellNotes"), stringToIndex, palette);
+        }
+        if (palette.isEmpty()) {
+            return;
+        }
+        JsonArray palJson = new JsonArray();
+        for (String s : palette) {
+            palJson.add(new JsonPrimitive(s));
+        }
+        worldRoot.add("tooltipPalette", palJson);
+        for (int i = 0; i < frames.size(); i++) {
+            JsonObject fr = frames.get(i)
+                .getAsJsonObject();
+            if (!fr.has("structure")) {
+                continue;
+            }
+            JsonObject st = fr.getAsJsonObject("structure");
+            applySdeCellNotesToBakedStructure(st, stringToIndex);
+        }
+    }
+
+    private static void collectSdeNoteStringsForPalette(JsonElement sdeCellNotes, Map<String, Integer> stringToIndex,
+        List<String> palette) {
+        if (sdeCellNotes == null || !sdeCellNotes.isJsonObject()) {
+            return;
+        }
+        for (Map.Entry<String, JsonElement> e : sdeCellNotes.getAsJsonObject()
+            .entrySet()) {
+            if (!e.getValue()
+                .isJsonPrimitive()) {
+                continue;
+            }
+            String t = e.getValue()
+                .getAsString();
+            if (t == null || t.isEmpty()) {
+                continue;
+            }
+            if (!stringToIndex.containsKey(t)) {
+                stringToIndex.put(t, Integer.valueOf(palette.size()));
+                palette.add(t);
+            }
+        }
+    }
+
+    private static void applySdeCellNotesToBakedStructure(JsonObject st, Map<String, Integer> stringToIndex) {
+        if (st == null || !st.has("cellGrid")) {
+            return;
+        }
+        int[] dim = readCellGridDimensions3(st.getAsJsonArray("cellGrid"));
+        if (dim == null) {
+            return;
+        }
+        int sizeZ = dim[0], sizeRow = dim[1], sizeCol = dim[2];
+        int[][][] ttg = new int[sizeZ][sizeRow][sizeCol];
+        for (int zi = 0; zi < sizeZ; zi++) {
+            for (int ri = 0; ri < sizeRow; ri++) {
+                for (int ci = 0; ci < sizeCol; ci++) {
+                    ttg[zi][ri][ci] = -1;
+                }
+            }
+        }
+        if (st.has("sdeCellNotes") && st.get("sdeCellNotes")
+            .isJsonObject()) {
+            for (Map.Entry<String, JsonElement> e : st.getAsJsonObject("sdeCellNotes")
+                .entrySet()) {
+                if (!e.getValue()
+                    .isJsonPrimitive()) {
+                    continue;
+                }
+                int[] zrc = SdeCellCoords.tryParseCellKey(e.getKey());
+                if (zrc == null
+                    || zrc[0] < 0
+                    || zrc[0] >= sizeZ
+                    || zrc[1] < 0
+                    || zrc[1] >= sizeRow
+                    || zrc[2] < 0
+                    || zrc[2] >= sizeCol) {
+                    continue;
+                }
+                String t = e.getValue()
+                    .getAsString();
+                if (t == null || t.isEmpty()) {
+                    continue;
+                }
+                Integer id = stringToIndex.get(t);
+                if (id == null) {
+                    continue;
+                }
+                ttg[zrc[0]][zrc[1]][zrc[2]] = id.intValue();
+            }
+        }
+        st.add("cellTooltipGrid", cellGridToJson(ttg));
+        st.remove("sdeCellNotes");
+    }
+
+    private static int[] readCellGridDimensions3(JsonArray cellGrid) {
+        if (cellGrid == null || cellGrid.size() == 0) {
+            return null;
+        }
+        try {
+            int sizeZ = cellGrid.size();
+            JsonArray row0 = cellGrid.get(0)
+                .getAsJsonArray();
+            int sizeRow = row0.size();
+            int sizeCol = row0.get(0)
+                .getAsJsonArray()
+                .size();
+            return new int[] { sizeZ, sizeRow, sizeCol };
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static void integrateSdeCellNotesSingleBakedRoot(JsonObject root) {
+        if (root == null || !root.has("sdeCellNotes") || !root.get("sdeCellNotes")
+            .isJsonObject()) {
+            return;
+        }
+        List<String> palette = new ArrayList<>();
+        Map<String, Integer> stringToIndex = new HashMap<>();
+        collectSdeNoteStringsForPalette(root.get("sdeCellNotes"), stringToIndex, palette);
+        if (palette.isEmpty()) {
+            root.remove("sdeCellNotes");
+            return;
+        }
+        JsonArray palJson = new JsonArray();
+        for (String s : palette) {
+            palJson.add(new JsonPrimitive(s));
+        }
+        root.add("tooltipPalette", palJson);
+        applySdeCellNotesToBakedStructure(root, stringToIndex);
     }
 
     private static void finalizeSingleStructure(JsonObject structure) throws Exception {
@@ -335,6 +492,15 @@ public final class MeshCaptureService {
 
         structure.add("blockPalette", blockPalette);
         structure.add("cellGrid", cellGridToJson(remapped));
+        int[][][] tooltips = new int[sizeZ][sizeRow][sizeCol];
+        for (int zi = 0; zi < sizeZ; zi++) {
+            for (int ri = 0; ri < sizeRow; ri++) {
+                for (int ci = 0; ci < sizeCol; ci++) {
+                    tooltips[zi][ri][ci] = -1;
+                }
+            }
+        }
+        structure.add("cellTooltipGrid", cellGridToJson(tooltips));
         structure.add("materialPalette", samplers.toMaterialPalette());
         structure.addProperty("geometryPhase", "baked");
         structure.remove("cellTypes");
