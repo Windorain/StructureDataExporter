@@ -18,6 +18,7 @@
 | `export` | 写出场景文件。 |
 | `web` | 启动本机 Web。 |
 | `webstop` | 停止本机 Web 服务。 |
+| `sel` | 选区选择模式，Cuboid和Extend模式 |
 
 ## 使用说明
 
