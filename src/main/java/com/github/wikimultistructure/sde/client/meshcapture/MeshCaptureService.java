@@ -128,14 +128,17 @@ public final class MeshCaptureService {
      */
     public static void finalizeStructureJson(JsonObject root) throws Exception {
         if (root.has("frames")) {
+            SamplerTable samplers = new SamplerTable();
             JsonArray frames = root.getAsJsonArray("frames");
             for (int i = 0; i < frames.size(); i++) {
                 JsonObject fr = frames.get(i)
                     .getAsJsonObject();
                 if (fr.has("structure")) {
-                    finalizeSingleStructure(fr.getAsJsonObject("structure"));
+                    finalizeSingleStructure(fr.getAsJsonObject("structure"), samplers);
                 }
             }
+            root.add("materialPalette", samplers.toMaterialPalette());
+            liftBlockPaletteToRoot(frames, root);
             integrateSdeCellNotesWorldRoot(root);
             if (!root.has("tooltipPalette")) {
                 root.add("tooltipPalette", new com.google.gson.JsonArray());
@@ -156,6 +159,75 @@ public final class MeshCaptureService {
                 .getAsString())
             && !root.has("textureBlobs")) {
             TextureBlobEmbedder.embedIntoDocument(root);
+        }
+    }
+
+    /**
+     * 全局 blockPalette SHA-256 去重：将各帧内 blockPalette 合并到根级，各帧 cellGrid 重映射为全局下标后移除帧内 blockPalette。
+     */
+    private static void liftBlockPaletteToRoot(JsonArray frames, JsonObject root) {
+        Map<String, Integer> sigToGlobal = new HashMap<>();
+        Map<Integer, JsonObject> globalEntryByIndex = new HashMap<>();
+        int nextGlobal = 1;
+
+        Map<Integer, Map<Integer, Integer>> frameRemap = new HashMap<>();
+
+        for (int fi = 0; fi < frames.size(); fi++) {
+            JsonObject st = frames.get(fi)
+                .getAsJsonObject()
+                .getAsJsonObject("structure");
+            if (!st.has("blockPalette")) continue;
+            JsonArray localBP = st.getAsJsonArray("blockPalette");
+
+            Map<Integer, Integer> localToGlobal = new HashMap<>();
+            localToGlobal.put(Integer.valueOf(0), Integer.valueOf(0));
+
+            for (int li = 1; li < localBP.size(); li++) {
+                JsonObject entry = localBP.get(li)
+                    .getAsJsonObject();
+                JsonObject geom = entry.getAsJsonObject("geometry");
+                String sig = geometrySignature(geom);
+                Integer gi = sigToGlobal.get(sig);
+                if (gi == null) {
+                    gi = Integer.valueOf(nextGlobal++);
+                    sigToGlobal.put(sig, gi);
+                    globalEntryByIndex.put(gi, entry);
+                }
+                localToGlobal.put(Integer.valueOf(li), gi);
+            }
+            frameRemap.put(Integer.valueOf(fi), localToGlobal);
+        }
+
+        JsonArray rootBP = new JsonArray();
+        rootBP.add(airBlockPaletteEntry());
+        for (int gi = 1; gi < nextGlobal; gi++) {
+            rootBP.add(globalEntryByIndex.get(Integer.valueOf(gi)));
+        }
+        root.add("blockPalette", rootBP);
+
+        for (int fi = 0; fi < frames.size(); fi++) {
+            JsonObject fr = frames.get(fi)
+                .getAsJsonObject();
+            JsonObject st = fr.getAsJsonObject("structure");
+            if (!st.has("cellGrid") || !st.has("blockPalette")) continue;
+
+            JsonArray oldGrid = st.getAsJsonArray("cellGrid");
+            Map<Integer, Integer> localToGlobal = frameRemap.get(Integer.valueOf(fi));
+            if (localToGlobal == null) continue;
+
+            int[][][] parsed = parseCellGrid(oldGrid);
+            int[][][] remapped = new int[parsed.length][parsed[0].length][parsed[0][0].length];
+            for (int zi = 0; zi < parsed.length; zi++) {
+                for (int ri = 0; ri < parsed[zi].length; ri++) {
+                    for (int ci = 0; ci < parsed[zi][ri].length; ci++) {
+                        Integer local = Integer.valueOf(parsed[zi][ri][ci]);
+                        remapped[zi][ri][ci] = localToGlobal.getOrDefault(local, Integer.valueOf(0))
+                            .intValue();
+                    }
+                }
+            }
+            st.add("cellGrid", cellGridToJson(remapped));
+            st.remove("blockPalette");
         }
     }
 
@@ -311,6 +383,12 @@ public final class MeshCaptureService {
     }
 
     private static void finalizeSingleStructure(JsonObject structure) throws Exception {
+        SamplerTable samplers = new SamplerTable();
+        finalizeSingleStructure(structure, samplers);
+        structure.add("materialPalette", samplers.toMaterialPalette());
+    }
+
+    private static void finalizeSingleStructure(JsonObject structure, SamplerTable samplers) throws Exception {
         if (structure == null || !structure.has("cellGrid")) {
             return;
         }
@@ -349,7 +427,6 @@ public final class MeshCaptureService {
 
         TextureMap textureMap = Minecraft.getMinecraft()
             .getTextureMapBlocks();
-        SamplerTable samplers = new SamplerTable();
 
         Map<Integer, JsonObject> geometryByCellType = new HashMap<>();
         Map<Integer, Boolean> opaqueByCellType = new HashMap<>();
@@ -544,7 +621,6 @@ public final class MeshCaptureService {
             }
         }
         structure.add("cellTooltipGrid", cellGridToJson(tooltips));
-        structure.add("materialPalette", samplers.toMaterialPalette());
         structure.addProperty("geometryPhase", "baked");
         structure.remove("cellTypes");
         structure.remove("worldGrid");

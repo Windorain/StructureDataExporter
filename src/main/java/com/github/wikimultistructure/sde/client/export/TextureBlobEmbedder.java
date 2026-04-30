@@ -116,14 +116,7 @@ public final class TextureBlobEmbedder {
 
     private static void collectMaterialPalettes(JsonObject root, List<JsonArray> out) {
         if (root.has("frames")) {
-            JsonArray frames = root.getAsJsonArray("frames");
-            for (JsonElement frEl : frames) {
-                JsonObject fr = frEl.getAsJsonObject();
-                if (fr.has("structure")) {
-                    JsonObject st = fr.getAsJsonObject("structure");
-                    addPaletteIfPresent(st, out);
-                }
-            }
+            addPaletteIfPresent(root, out);
             return;
         }
         addPaletteIfPresent(root, out);

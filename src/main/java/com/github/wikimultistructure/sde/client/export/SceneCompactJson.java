@@ -38,6 +38,8 @@ public final class SceneCompactJson {
             copyIfPresent(rawFinal, meta, "globalConfig");
             copyIfPresent(rawFinal, meta, "schemaVersion");
             copyIfPresent(rawFinal, inner, "frames");
+            copyIfPresent(rawFinal, inner, "materialPalette");
+            copyIfPresent(rawFinal, inner, "blockPalette");
             copyIfPresent(rawFinal, inner, "textureBlobs");
             copyIfPresent(rawFinal, inner, "tooltipPalette");
         } else {
