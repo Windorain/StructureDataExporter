@@ -24,6 +24,7 @@ import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.Timer;
 import net.minecraft.world.World;
 
@@ -382,55 +383,97 @@ public final class MeshCaptureService {
             }
             String label = captureLabel(vs, b, world, wx, wy, wz);
             CapturedBlockInstance inst = new CapturedBlockInstance();
-            int blockMeta = world.getBlockMetadata(wx, wy, wz);
-            int renderType = b.getRenderType();
-            TessellatorCaptureState.beginBlock(wx, wy, wz, label, wx, wy, wz, b, blockMeta, renderType, vs.registryId);
-            Tessellator tess = Tessellator.instance;
-            tess.startDrawingQuads();
-            BlockPrimaryCaptureRegistry.dispatch(
-                new BlockPrimaryCaptureContext(world, wx, wy, wz, b, blockMeta, rb, partialTicksForMeshCapture()));
             /*
-             * 结束静态批次再 dispatch：FMP/PR 的 renderDynamic 内会 CCRenderState#startDrawingInstance →
-             * Tessellator#startDrawing。若外层 startDrawingQuads 尚未 draw，将 IllegalStateException: Already tesselating
-             * （与 Vector3/ClassLoader 反射无关）。
+             * 必须与当帧 scan JSON 的 cellTypes[ti] 一致：多帧联录后一次性 finalize 时，客户端
+             * world.getBlockMetadata 往往已是“最后一帧”世界态；若用此处元数据，各帧几何会与 record 时服务端
+             * 采样的体素态脱节（GT 等 mID 在 VoxelSample.meta / TE，而非客户端此时 blockMetadata）。
              */
-            tess.draw();
-
-            MeshCaptureBlockPostRenderRegistry.dispatch(
-                new MeshCaptureBlockPostRenderContext(
-                    world,
-                    wx,
-                    wy,
-                    wz,
-                    b,
-                    blockMeta,
-                    rb,
-                    partialTicksForMeshCapture()));
-            int quadsBeforeDraw = TessellatorCaptureState.currentBlockRecordedQuadCount();
-            try {
-                tess.draw();
-            } catch (Throwable ignored) {
-                /* 动态路径常已在内部 drawInstance；此时不再处于绘制中 */
-            }
-            if (quadsBeforeDraw == 0) {
-                GL11.glPushMatrix();
+            int blockMeta = vs != null ? vs.meta : world.getBlockMetadata(wx, wy, wz);
+            int renderType = b.getRenderType();
+            /*
+             * ISBRH/TESR 从世界 TE 读状态；多帧时客户端 TE 多为最终态。临时写入 scan 内服务端 NBT 再恢复。
+             * TileMultipart 未覆写 readFromNBT — 直接调用不会更新 parts 的取向等内部态，
+             * 需额外通过 MultipartNbtStateUtil 反射 part.load() 逐 part 注入。
+             */
+            TileEntity teForCapture = world.getTileEntity(wx, wy, wz);
+            NBTTagCompound teCaptureBackup = null;
+            boolean teIsMultipart = false;
+            if (teForCapture != null && vs != null && vs.tileNbt != null) {
+                teCaptureBackup = new NBTTagCompound();
+                teForCapture.writeToNBT(teCaptureBackup);
+                teIsMultipart = MultipartNbtStateUtil.isTileMultipart(teForCapture);
+                NBTTagCompound toApply = (NBTTagCompound) vs.tileNbt.copy();
+                toApply.setInteger("x", teForCapture.xCoord);
+                toApply.setInteger("y", teForCapture.yCoord);
+                toApply.setInteger("z", teForCapture.zCoord);
                 try {
-                    rb.renderBlockAsItem(b, blockMeta, 1.0F);
+                    teForCapture.readFromNBT(toApply);
                 } catch (Throwable ignored) {
-                    /* 少数方块在库存路径下可能抛错 */
-                } finally {
-                    GL11.glPopMatrix();
+                    /* 个别模组 NBT 不兼容时仍走原 TE */
+                }
+                MultipartNbtStateUtil.diagnoseReadFromNbtOverride(teForCapture);
+                if (teIsMultipart) {
+                    MultipartNbtStateUtil.loadPartStatesFromNbt(teForCapture, toApply);
                 }
             }
-            TessellatorCaptureState.endBlock(inst);
-            if (inst.quads.isEmpty()) {
-                geometryByCellType.put(ti, emptyGeometryJson());
-                opaqueByCellType.put(ti, false);
-            } else {
-                attachMaterials(inst, textureMap, samplers);
-                JsonObject geo = bakedQuadsGeometryFromCapture(inst);
-                geometryByCellType.put(ti, geo);
-                opaqueByCellType.put(ti, b.isOpaqueCube());
+            try {
+                TessellatorCaptureState.beginBlock(wx, wy, wz, label, wx, wy, wz, b, blockMeta, renderType, vs.registryId);
+                Tessellator tess = Tessellator.instance;
+                tess.startDrawingQuads();
+                BlockPrimaryCaptureRegistry.dispatch(
+                    new BlockPrimaryCaptureContext(world, wx, wy, wz, b, blockMeta, rb, partialTicksForMeshCapture()));
+                /*
+                 * 结束静态批次再 dispatch：FMP/PR 的 renderDynamic 内会 CCRenderState#startDrawingInstance →
+                 * Tessellator#startDrawing。若外层 startDrawingQuads 尚未 draw，将 IllegalStateException: Already tesselating
+                 * （与 Vector3/ClassLoader 反射无关）。
+                 */
+                tess.draw();
+
+                MeshCaptureBlockPostRenderRegistry.dispatch(
+                    new MeshCaptureBlockPostRenderContext(
+                        world,
+                        wx,
+                        wy,
+                        wz,
+                        b,
+                        blockMeta,
+                        rb,
+                        partialTicksForMeshCapture()));
+                int quadsBeforeDraw = TessellatorCaptureState.currentBlockRecordedQuadCount();
+                try {
+                    tess.draw();
+                } catch (Throwable ignored) {
+                    /* 动态路径常已在内部 drawInstance；此时不再处于绘制中 */
+                }
+                if (quadsBeforeDraw == 0) {
+                    GL11.glPushMatrix();
+                    try {
+                        rb.renderBlockAsItem(b, blockMeta, 1.0F);
+                    } catch (Throwable ignored) {
+                        /* 少数方块在库存路径下可能抛错 */
+                    } finally {
+                        GL11.glPopMatrix();
+                    }
+                }
+                TessellatorCaptureState.endBlock(inst);
+                if (inst.quads.isEmpty()) {
+                    geometryByCellType.put(ti, emptyGeometryJson());
+                    opaqueByCellType.put(ti, false);
+                } else {
+                    attachMaterials(inst, textureMap, samplers);
+                    JsonObject geo = bakedQuadsGeometryFromCapture(inst);
+                    geometryByCellType.put(ti, geo);
+                    opaqueByCellType.put(ti, b.isOpaqueCube());
+                }
+            } finally {
+                if (teForCapture != null && teCaptureBackup != null) {
+                    try {
+                        teForCapture.readFromNBT(teCaptureBackup);
+                    } catch (Throwable ignored) { /* 尽力恢复 */ }
+                    if (teIsMultipart) {
+                        MultipartNbtStateUtil.loadPartStatesFromNbt(teForCapture, teCaptureBackup);
+                    }
+                }
             }
         }
 

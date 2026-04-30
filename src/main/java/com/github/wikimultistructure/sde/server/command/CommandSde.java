@@ -3,6 +3,8 @@ package com.github.wikimultistructure.sde.server.command;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+import com.google.gson.JsonObject;
+
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -19,6 +21,7 @@ import com.github.wikimultistructure.sde.core.session.SdeSelectionMode;
 import com.github.wikimultistructure.sde.core.util.RayTraceUtil;
 import com.github.wikimultistructure.sde.network.SdeNetwork;
 import com.github.wikimultistructure.sde.server.SdePermissions;
+import com.github.wikimultistructure.sde.server.SdeServerRecordScheduler;
 import com.github.wikimultistructure.sde.server.web.SdeWebServer;
 
 public class CommandSde extends CommandBase {
@@ -30,7 +33,7 @@ public class CommandSde extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/sde <pos1|pos2|hpos1|hpos2|sel [cuboid|extend]|start|end|setName|setFrame|setStructureId|record|export [raw]|dump|status|web [port]|webstop>";
+        return "/sde <pos1|pos2|hpos1|hpos2|sel [cuboid|extend]|start|end|setName|setFrame|setStructureId|record [N|cycle]|export [raw]|dump|status|web [port]|webstop>";
     }
 
     @Override
@@ -113,11 +116,72 @@ public class CommandSde extends CommandBase {
                     s.setStructureId(joinArgs(args, 1));
                     sender.addChatMessage(new ChatComponentText("SDE: structureId=" + s.getStructureId()));
                     break;
-                case "record":
+                case "record": {
                     if (!checkPlayer(sender)) return;
-                    s.record((EntityPlayerMP) sender);
-                    sender.addChatMessage(new ChatComponentText("SDE: 已写入内存帧 " + s.getActiveFrame() + "（未落盘）"));
+                    EntityPlayerMP recP = (EntityPlayerMP) sender;
+                    if (!SdePermissions.canUseSde(recP)) {
+                        recP.addChatMessage(new ChatComponentText("SDE: 需要 OP 权限"));
+                        return;
+                    }
+                    if (args.length == 1) {
+                        s.record(recP);
+                        sender.addChatMessage(new ChatComponentText("SDE: 已写入内存帧 " + s.getActiveFrame() + "（未落盘）"));
+                        break;
+                    }
+                    if (SdeServerRecordScheduler.get()
+                        .isBusy()) {
+                        sender.addChatMessage(new ChatComponentText("SDE: 已有连录或 cycle 进行中，请等待结束或拒绝后重试"));
+                        return;
+                    }
+                    if (args.length == 2 && "cycle".equalsIgnoreCase(args[1])) {
+                        int f0 = s.getActiveFrame();
+                        JsonObject scan0 = s.scanToStructureJsonOnly(recP);
+                        String baseline = s.jsonStringForScanCompare(scan0);
+                        s.commitScanToFrame(f0, scan0, recP);
+                        if (!SdeServerRecordScheduler.get()
+                            .tryStartCycleFromNextTick(recP, f0, baseline)) {
+                            sender.addChatMessage(new ChatComponentText("SDE: 无法启动 cycle"));
+                            return;
+                        }
+                        sender.addChatMessage(
+                            new ChatComponentText(
+                                "SDE: cycle 已启动（首帧 F" + f0 + " 已写入；自下一 tick 起比较 scan，最多 "
+                                    + SdeServerRecordScheduler.MAX_CYCLE_ATTEMPTS
+                                    + " tick，未落盘）"));
+                        break;
+                    }
+                    if (args.length == 2) {
+                        int n;
+                        try {
+                            n = Integer.parseInt(args[1]);
+                        } catch (NumberFormatException ex) {
+                            sender.addChatMessage(new ChatComponentText("SDE: record 用法: /sde record | /sde record <N> | /sde record cycle"));
+                            return;
+                        }
+                        if (n <= 0) {
+                            sender.addChatMessage(new ChatComponentText("SDE: N 须为正整数"));
+                            return;
+                        }
+                        if (n > SdeServerRecordScheduler.MAX_CONSECUTIVE_RECORD_TICKS) {
+                            sender.addChatMessage(
+                                new ChatComponentText(
+                                    "SDE: N 过大（上限 " + SdeServerRecordScheduler.MAX_CONSECUTIVE_RECORD_TICKS + "），已拒绝"));
+                            return;
+                        }
+                        int f0b = s.getActiveFrame();
+                        if (!SdeServerRecordScheduler.get()
+                            .tryStartTickBatch(recP, f0b, n)) {
+                            sender.addChatMessage(new ChatComponentText("SDE: 无法启动连录"));
+                            return;
+                        }
+                        sender.addChatMessage(
+                            new ChatComponentText(
+                                "SDE: 连录已启动 " + n + " tick（自下一 tick 写入 F" + f0b + "–F" + (f0b + n - 1) + "，未落盘）"));
+                        break;
+                    }
+                    sender.addChatMessage(new ChatComponentText("SDE: record 用法: /sde record | /sde record <N> | /sde record cycle"));
                     break;
+                }
                 case "export":
                     if (!checkPlayer(sender)) return;
                     EntityPlayerMP exporter = (EntityPlayerMP) sender;

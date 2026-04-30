@@ -202,6 +202,11 @@ public final class ExportSession {
         return activeFrame;
     }
 
+    /** 调试用：当前已 record 的帧数 */
+    public int getBufferedFrameCount() {
+        return frameJson.size();
+    }
+
     /** 当前帧、体素格备注；无则空串 */
     public String getCellNote(int frameIndex, int zSlice, int row, int column) {
         Map<String, String> m = cellNotesByFrame.get(frameIndex);
@@ -313,17 +318,46 @@ public final class ExportSession {
         return x + "," + y + "," + z;
     }
 
-    public void record(EntityPlayerMP player) {
+    /**
+     * 将选区扫入 {@code frameJson[targetFrame]}；与活动帧解耦，不修改 {@link #activeFrame}。备注、{@code sdeCellNotes} 按
+     * {@code targetFrame} 与 {@link #cellNotesByFrame} 关联。
+     */
+    public void recordIntoFrame(int targetFrame, EntityPlayerMP player) {
+        commitScanToFrame(targetFrame, scanToStructureJsonOnly(player), player);
+    }
+
+    /**
+     * 将已得到的 scan 根对象（无备注）写入指定帧；用于 cycle 等避免重复扫描。
+     */
+    public void commitScanToFrame(int targetFrame, JsonObject scanRoot, EntityPlayerMP player) {
         if (!hasCompleteSelection()) {
             throw new IllegalStateException("请先 /sde pos1 与 /sde pos2（或 hpos/选区工具）");
         }
-        World world = player.worldObj;
         lastAuthor = player.getCommandSenderName();
         lastGtnhVersion = PackVersionProbe.tryPackVersionString();
-        JsonObject obj = StructureScan
-            .scanToStructureJson(world, pos1x, pos1y, pos1z, pos2x, pos2y, pos2z, structureId, sampler, player);
-        applyCellNotesToScanJson(obj, activeFrame);
-        frameJson.put(activeFrame, GSON.toJson(obj));
+        applyCellNotesToScanJson(scanRoot, targetFrame);
+        frameJson.put(targetFrame, GSON.toJson(scanRoot));
+    }
+
+    /** 对当前选区做 scan 中间态，供 cycle 等比较用（在写入备注前）。不修改 {@link #frameJson}。 */
+    public JsonObject scanToStructureJsonOnly(EntityPlayerMP player) {
+        if (!hasCompleteSelection()) {
+            throw new IllegalStateException("请先 /sde pos1 与 /sde pos2（或 hpos/选区工具）");
+        }
+        return StructureScan
+            .scanToStructureJson(player.worldObj, pos1x, pos1y, pos1z, pos2x, pos2y, pos2z, structureId, sampler, player);
+    }
+
+    /**
+     * 与 {@code GSON.toJson} 对 scan 根对象序列化，供 cycle 与首帧 {@code equals} 比较（在写入
+     * sdeCellNotes 前对同一套 Gson 的字符串）。
+     */
+    public String jsonStringForScanCompare(JsonObject scanRoot) {
+        return GSON.toJson(scanRoot);
+    }
+
+    public void record(EntityPlayerMP player) {
+        recordIntoFrame(activeFrame, player);
     }
 
     /**
