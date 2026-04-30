@@ -12,3 +12,5 @@
 
 # Workbench 打包进资源目录的前端构建产物，勿提交
 src/main/resources/assets/structuredataexporter/web/
+
+.claude
