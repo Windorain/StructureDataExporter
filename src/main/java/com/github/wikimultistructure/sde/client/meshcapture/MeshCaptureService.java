@@ -118,14 +118,6 @@ public final class MeshCaptureService {
     }
 
     /**
-     * @deprecated 请使用 {@link #finalizeStructureJson(JsonObject)}
-     */
-    @Deprecated
-    public static void enrichRoot(JsonObject root) throws Exception {
-        finalizeStructureJson(root);
-    }
-
-    /**
      * 就地修改 root：单文件 {@code geometryPhase=scan} 或 World 文档内每一帧的 {@code structure} 均执行烘焙。
      */
     public static void finalizeStructureJson(JsonObject root) throws Exception {
