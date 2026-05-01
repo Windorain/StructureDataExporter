@@ -32,7 +32,7 @@ import org.lwjgl.opengl.GL11;
 
 import com.github.wikimultistructure.sde.client.export.ExportTextureLocator;
 import com.github.wikimultistructure.sde.client.export.MaterialAnimationJson;
-import com.github.wikimultistructure.sde.client.export.SceneCompactJson;
+import com.github.wikimultistructure.sde.client.export.SceneEnvelopeBuilder;
 import com.github.wikimultistructure.sde.client.export.TextureBlobEmbedder;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedBlockInstance;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
@@ -104,12 +104,12 @@ public final class MeshCaptureService {
             new java.io.FileOutputStream(out),
             StandardCharsets.UTF_8)) {
             if (writeRaw) {
-                root.addProperty("documentFormat", "Raw");
+                root.addProperty("documentFormat", "Plain");
                 com.google.gson.Gson gson = new com.google.gson.GsonBuilder().setPrettyPrinting()
                     .create();
                 w.write(gson.toJson(root));
             } else {
-                JsonObject envelope = SceneCompactJson.toCompactEnvelope(root);
+                JsonObject envelope = SceneEnvelopeBuilder.toEnvelope(root);
                 w.write(new com.google.gson.Gson().toJson(envelope));
             }
         }

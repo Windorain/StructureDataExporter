@@ -9,19 +9,19 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 /**
- * 将终态 Raw 文档拆成明文 {@code meta} + gzip+Base64 {@code payload}。
+ * 将终态 Plain 文档拆成明文 {@code meta} + gzip+Base64 {@code payload}。
  * 与 Wiki 侧约定一致：元数据只在 {@code meta}；{@code payload} 解压后为不含 id/label 等顶层元数据键的 body（仅 frames / cellGrid / palette /
  * textureBlobs 等）。
  */
-public final class SceneCompactJson {
+public final class SceneEnvelopeBuilder {
 
     public static final String PAYLOAD_ENCODING = "gzip+base64";
 
     private static final Gson COMPACT_GSON = new Gson();
 
-    private SceneCompactJson() {}
+    private SceneEnvelopeBuilder() {}
 
-    public static JsonObject toCompactEnvelope(JsonObject rawFinal) {
+    public static JsonObject toEnvelope(JsonObject rawFinal) {
         JsonObject meta = new JsonObject();
         JsonObject inner = new JsonObject();
         if (rawFinal.has("frames") && rawFinal.get("frames")
@@ -77,7 +77,7 @@ public final class SceneCompactJson {
         String b64 = Base64.getEncoder()
             .encodeToString(bos.toByteArray());
         JsonObject env = new JsonObject();
-        env.addProperty("documentFormat", "Compact");
+        env.addProperty("documentFormat", "Envelope");
         env.addProperty("payloadEncoding", PAYLOAD_ENCODING);
         env.add("meta", meta);
         env.addProperty("payload", b64);
