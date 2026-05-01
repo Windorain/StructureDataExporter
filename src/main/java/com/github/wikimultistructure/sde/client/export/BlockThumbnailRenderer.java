@@ -8,15 +8,14 @@ import javax.imageio.ImageIO;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.OpenGlHelper;
-import net.minecraft.client.renderer.RenderBlocks;
-import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.IIcon;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL12;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -25,75 +24,104 @@ import cpw.mods.fml.relauncher.SideOnly;
 public final class BlockThumbnailRenderer {
 
     private static final int THUMB_SIZE = 64;
+    /**
+     * {@link RenderItem} laid out for a 16×16 GUI cell; scale up around canvas center so the model uses ~most of
+     * {@link #THUMB_SIZE} without typical clipping.
+     */
+    private static final float THUMB_DRAW_SCALE = 3.25F;
     private static Framebuffer thumbnailFbo;
 
+    /**
+     * Matches inventory / NEI: {@link RenderItem#renderItemAndEffectIntoGUI} → {@link RenderItem#renderItemIntoGUI},
+     * including {@code GL_ALPHA_TEST} / blend setup and the vanilla 3D block matrix for {@code renderBlockAsItem}.
+     * NEI wraps that in {@code GuiContainerManager#enable3DRender} (lighting + depth).
+     * <p>
+     * With {@code glOrtho(..., 1000, 3000)} the model-view stack must include the same
+     * {@code glTranslatef(0, 0, -2000)} as {@code GuiScreen} before item draws; otherwise 3D
+     * quads fall outside the depth range and the FBO stays cleared (fully transparent PNG).
+     */
     public static String renderToBase64PNG(Block block, int meta) {
-        if (block == null || block == Blocks.air) return null;
+        if (block == null || block == Blocks.air) {
+            return null;
+        }
+        Item item = Item.getItemFromBlock(block);
+        if (item == null) {
+            return null;
+        }
+        ItemStack stack = new ItemStack(item, 1, meta);
         try {
             Framebuffer fbo = getOrCreateFbo();
             Framebuffer prevFbo = Minecraft.getMinecraft().getFramebuffer();
-
-            fbo.bindFramebuffer(true);
-            GL11.glClearColor(0, 0, 0, 0);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-
-            // Set up orthographic projection for item rendering
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-            GL11.glOrtho(-1, 1, -1, 1, -1, 10);
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glEnable(GL11.GL_LIGHTING);
-            GL11.glEnable(GL12.GL_RESCALE_NORMAL);
-
-            // Standard MC inventory item rotation
-            GL11.glRotatef(30.0F, 1.0F, 0.0F, 0.0F);
-            GL11.glRotatef(-45.0F, 0.0F, 1.0F, 0.0F);
-            GL11.glTranslatef(-0.5F, -0.5F, -0.5F);
-
-            RenderBlocks rb = new RenderBlocks(); // null blockAccess = item mode
-            rb.renderBlockAsItem(block, meta, 1.0F);
-
-            GL11.glDisable(GL12.GL_RESCALE_NORMAL);
-            GL11.glDisable(GL11.GL_LIGHTING);
-
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glPopMatrix();
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-            GL11.glPopMatrix();
-
-            // Read pixels (OpenGL bottom-left origin)
-            ByteBuffer pixels = ByteBuffer.allocateDirect(THUMB_SIZE * THUMB_SIZE * 4);
-            GL11.glReadPixels(0, 0, THUMB_SIZE, THUMB_SIZE, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixels);
-            pixels.rewind();
-
-            // Convert to BufferedImage with y-flip
-            BufferedImage img = new BufferedImage(THUMB_SIZE, THUMB_SIZE, BufferedImage.TYPE_INT_ARGB);
-            for (int y = 0; y < THUMB_SIZE; y++) {
-                for (int x = 0; x < THUMB_SIZE; x++) {
-                    int idx = (y * THUMB_SIZE + x) * 4;
-                    int r = pixels.get(idx) & 0xFF;
-                    int g = pixels.get(idx + 1) & 0xFF;
-                    int b = pixels.get(idx + 2) & 0xFF;
-                    int a = pixels.get(idx + 3) & 0xFF;
-                    img.setRGB(x, THUMB_SIZE - 1 - y, (a << 24) | (r << 16) | (g << 8) | b);
-                }
-            }
+            Minecraft mc = Minecraft.getMinecraft();
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ImageIO.write(img, "PNG", baos);
-            byte[] pngBytes = baos.toByteArray();
 
-            // Restore previous framebuffer
-            if (prevFbo != null) {
-                prevFbo.bindFramebuffer(true);
+            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            try {
+                fbo.bindFramebuffer(true);
+                GL11.glViewport(0, 0, THUMB_SIZE, THUMB_SIZE);
+                GL11.glClearColor(0, 0, 0, 0);
+                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+
+                GL11.glMatrixMode(GL11.GL_PROJECTION);
+                GL11.glPushMatrix();
+                GL11.glLoadIdentity();
+                GL11.glOrtho(0, THUMB_SIZE, THUMB_SIZE, 0, 1000, 3000);
+                GL11.glMatrixMode(GL11.GL_MODELVIEW);
+                GL11.glPushMatrix();
+                GL11.glLoadIdentity();
+                GL11.glTranslatef(0.0F, 0.0F, -2000.0F);
+
+                float cx = THUMB_SIZE * 0.5F;
+                float cy = THUMB_SIZE * 0.5F;
+                GL11.glTranslatef(cx, cy, 0.0F);
+                GL11.glScalef(THUMB_DRAW_SCALE, THUMB_DRAW_SCALE, THUMB_DRAW_SCALE);
+                GL11.glTranslatef(-cx, -cy, 0.0F);
+
+                RenderHelper.enableGUIStandardItemLighting();
+                GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+                GL11.glEnable(GL11.GL_DEPTH_TEST);
+                GL11.glEnable(GL11.GL_LIGHTING);
+
+                RenderItem renderItem = new RenderItem();
+                renderItem.zLevel = 0.0F;
+                renderItem.renderWithColor = true;
+                int slotX = (THUMB_SIZE - 16) / 2;
+                int slotY = (THUMB_SIZE - 16) / 2;
+                renderItem.renderItemAndEffectIntoGUI(mc.fontRenderer, mc.renderEngine, stack, slotX, slotY);
+
+                RenderHelper.disableStandardItemLighting();
+
+                GL11.glMatrixMode(GL11.GL_PROJECTION);
+                GL11.glPopMatrix();
+                GL11.glMatrixMode(GL11.GL_MODELVIEW);
+                GL11.glPopMatrix();
+
+                ByteBuffer pixels = ByteBuffer.allocateDirect(THUMB_SIZE * THUMB_SIZE * 4);
+                GL11.glReadPixels(0, 0, THUMB_SIZE, THUMB_SIZE, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixels);
+                pixels.rewind();
+
+                BufferedImage img = new BufferedImage(THUMB_SIZE, THUMB_SIZE, BufferedImage.TYPE_INT_ARGB);
+                for (int y = 0; y < THUMB_SIZE; y++) {
+                    for (int x = 0; x < THUMB_SIZE; x++) {
+                        int idx = (y * THUMB_SIZE + x) * 4;
+                        int r = pixels.get(idx) & 0xFF;
+                        int g = pixels.get(idx + 1) & 0xFF;
+                        int b = pixels.get(idx + 2) & 0xFF;
+                        int a = pixels.get(idx + 3) & 0xFF;
+                        img.setRGB(x, THUMB_SIZE - 1 - y, (a << 24) | (r << 16) | (g << 8) | b);
+                    }
+                }
+                ImageIO.write(img, "PNG", baos);
+
+                if (prevFbo != null) {
+                    prevFbo.bindFramebuffer(true);
+                }
+            } finally {
+                GL11.glPopAttrib();
             }
 
-            return Base64.getEncoder().encodeToString(pngBytes);
+            return Base64.getEncoder().encodeToString(baos.toByteArray());
         } catch (Exception e) {
             e.printStackTrace();
             return null;
