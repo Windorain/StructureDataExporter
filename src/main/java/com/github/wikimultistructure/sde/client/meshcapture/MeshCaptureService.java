@@ -17,6 +17,7 @@ import java.util.Map;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
+import net.minecraft.item.ItemStack;
 import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -179,8 +180,7 @@ public final class MeshCaptureService {
             for (int li = 1; li < localBP.size(); li++) {
                 JsonObject entry = localBP.get(li)
                     .getAsJsonObject();
-                JsonObject geom = entry.getAsJsonObject("geometry");
-                String sig = geometrySignature(geom);
+                String sig = entryEqualitySignature(entry);
                 Integer gi = sigToGlobal.get(sig);
                 if (gi == null) {
                     gi = Integer.valueOf(nextGlobal++);
@@ -548,7 +548,29 @@ public final class MeshCaptureService {
             }
         }
 
-        /* 几何指纹合并 → blockPalette + remapped cellGrid */
+        /* 为每种 cellType 生成 NEI 风格的 ToolTip 文本 */
+        Map<Integer, List<String>> tooltipByCellType = new HashMap<>();
+        for (int ti = 1; ti < cellTypes.length; ti++) {
+            VoxelSample vs = cellTypes[ti];
+            try {
+                Block b = Block.getBlockFromName(vs.registryId);
+                if (b != null && b != Blocks.air) {
+                    ItemStack stack = new ItemStack(b, 1, vs.meta);
+                    if (vs.tileNbt != null && !vs.tileNbt.hasNoTags()) {
+                        stack.setTagCompound((NBTTagCompound) vs.tileNbt.copy());
+                    }
+                    List<String> lines = stack.getTooltip(
+                        Minecraft.getMinecraft().thePlayer,
+                        Minecraft.getMinecraft().gameSettings.advancedItemTooltips);
+                    if (lines != null && !lines.isEmpty()) {
+                        tooltipByCellType.put(ti, lines);
+                    }
+                }
+            } catch (Exception ignored) {
+                // Tooltip generation failure shouldn't block export
+            }
+        }
+
         int nextFinal = 1;
         Map<String, Integer> sigToFinal = new HashMap<>();
         Map<Integer, Integer> cellTypeToFinal = new HashMap<>();
@@ -556,20 +578,26 @@ public final class MeshCaptureService {
         Map<Integer, VoxelSample> repForFinal = new HashMap<>();
         Map<Integer, JsonObject> geometryForFinal = new HashMap<>();
         Map<Integer, Boolean> opaqueForFinal = new HashMap<>();
+        Map<Integer, List<String>> tooltipForFinal = new HashMap<>();
 
         for (int ti = 1; ti < cellTypes.length; ti++) {
             JsonObject geom = geometryByCellType.get(ti);
             if (geom == null) {
                 geom = emptyGeometryJson();
             }
-            String sig = geometrySignature(geom);
+            VoxelSample vs = cellTypes[ti];
+            List<String> tt = tooltipByCellType.get(ti);
+            String sig = fullEqualitySignature(vs.registryId, vs.meta, vs.tileNbt, geom, tt);
             Integer fin = sigToFinal.get(sig);
             if (fin == null) {
                 fin = Integer.valueOf(nextFinal++);
                 sigToFinal.put(sig, fin);
-                repForFinal.put(fin, cellTypes[ti]);
+                repForFinal.put(fin, vs);
                 geometryForFinal.put(fin, deepCopyJsonObject(geom));
                 opaqueForFinal.put(fin, opaqueByCellType.getOrDefault(ti, false));
+                if (tt != null) {
+                    tooltipForFinal.put(fin, tt);
+                }
             }
             cellTypeToFinal.put(ti, fin);
         }
@@ -610,6 +638,14 @@ public final class MeshCaptureService {
                 "occludesAdjacentFaces",
                 opaqueForFinal.getOrDefault(fi, false)
                     .booleanValue());
+            List<String> tooltipLines = tooltipForFinal.get(fi);
+            JsonArray ttArr = new JsonArray();
+            if (tooltipLines != null) {
+                for (String line : tooltipLines) {
+                    ttArr.add(new JsonPrimitive(line));
+                }
+            }
+            p.add("tooltip", ttArr);
             blockPalette.add(p);
         }
 
@@ -655,10 +691,21 @@ public final class MeshCaptureService {
         p.add("geometry", emptyGeometryJson());
         p.addProperty("occludesAdjacentFaces", false);
         p.add("nbt", JsonNull.INSTANCE);
+        p.add("tooltip", new JsonArray());
         return p;
     }
 
-    /** 稳定几何指纹：四边形排序后，顶点与 UV 量化，SHA-256 Base64。 */
+    private static String sha256Base64(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder()
+                .encodeToString(digest);
+        } catch (Exception e) {
+            return "sha256-error";
+        }
+    }
+
     private static String geometrySignature(JsonObject geometry) {
         try {
             JsonArray quads = geometry.getAsJsonArray("quads");
@@ -698,14 +745,58 @@ public final class MeshCaptureService {
                 quadLines.add(sb.toString());
             }
             Collections.sort(quadLines);
-            String joined = String.join("\n", quadLines);
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(joined.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder()
-                .encodeToString(digest);
+            return sha256Base64(String.join("\n", quadLines));
         } catch (Exception e) {
             return "sig-error:" + String.valueOf(geometry);
         }
+    }
+
+    private static String fullEqualitySignature(String registryId, int meta, NBTTagCompound tileNbt,
+        JsonObject geometry, List<String> tooltip) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            sb.append(registryId).append('\0');
+            sb.append(meta).append('\0');
+            sb.append(geometrySignature(geometry)).append('\0');
+            if (tileNbt != null && !tileNbt.hasNoTags()) {
+                sb.append(NbtJsonSerializer.toJson(tileNbt)).append('\0');
+            }
+            if (tooltip != null && !tooltip.isEmpty()) {
+                for (String line : tooltip) {
+                    sb.append(line).append('\n');
+                }
+            }
+            return sha256Base64(sb.toString());
+        } catch (Exception e) {
+            return "sig-error:" + registryId + ":" + meta;
+        }
+    }
+
+    private static String entryEqualitySignature(JsonObject entry) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            sb.append(entry.get("registryId").getAsString()).append('\0');
+            sb.append(entry.get("meta").getAsInt()).append('\0');
+            JsonObject geom = entry.getAsJsonObject("geometry");
+            sb.append(geometrySignature(geom)).append('\0');
+            if (entry.has("nbt") && !entry.get("nbt").isJsonNull()
+                && !isEmptyJsonObject(entry.get("nbt"))) {
+                sb.append(entry.get("nbt").toString()).append('\0');
+            }
+            if (entry.has("tooltip") && entry.get("tooltip").isJsonArray()) {
+                JsonArray tt = entry.getAsJsonArray("tooltip");
+                for (JsonElement e : tt) {
+                    sb.append(e.getAsString()).append('\n');
+                }
+            }
+            return sha256Base64(sb.toString());
+        } catch (Exception e) {
+            return "sig-error:" + entry.toString();
+        }
+    }
+
+    private static boolean isEmptyJsonObject(JsonElement e) {
+        return e.isJsonObject() && e.getAsJsonObject().entrySet().isEmpty();
     }
 
     private static double quant4(JsonElement e) {
