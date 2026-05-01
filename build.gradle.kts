@@ -73,7 +73,8 @@ tasks.register("prepareWikiWorkbenchGitRepo") {
             cmd.add(dir.name)
             gitExec(parent, cmd)
         } else {
-            gitExec(dir, listOf("git", "pull", "--ff-only"))
+            gitExec(dir, listOf("git", "fetch", "origin"))
+            gitExec(dir, listOf("git", "reset", "--hard", "FETCH_HEAD"))
         }
     }
 }
