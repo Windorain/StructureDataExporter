@@ -35,6 +35,7 @@ import com.github.wikimultistructure.sde.client.export.MaterialAnimationJson;
 import com.github.wikimultistructure.sde.client.export.SceneEnvelopeBuilder;
 import com.github.wikimultistructure.sde.client.export.NbtJsonSerializer;
 import com.github.wikimultistructure.sde.client.export.TextureBlobEmbedder;
+import com.github.wikimultistructure.sde.client.export.BlockThumbnailRenderer;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedBlockInstance;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
@@ -598,6 +599,18 @@ public final class MeshCaptureService {
                 } catch (Exception ignored) {
                     // NBT serialization failure shouldn't block geometry export
                 }
+            }
+            // Thumbnail: render block as item to off-screen FBO and encode as base64 PNG
+            try {
+                Block b = Block.getBlockFromName(r.registryId);
+                if (b != null && b != Blocks.air) {
+                    String thumbB64 = BlockThumbnailRenderer.renderToBase64PNG(b, r.meta);
+                    if (thumbB64 != null && !thumbB64.isEmpty()) {
+                        p.addProperty("thumbnailPNG", thumbB64);
+                    }
+                }
+            } catch (Exception ignored) {
+                // Thumbnail failure shouldn't block geometry export
             }
             p.addProperty("renderMode", "BakedQuads");
             p.add("geometry", deepCopyJsonObject(geometryForFinal.get(fi)));
