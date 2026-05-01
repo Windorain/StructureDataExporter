@@ -33,6 +33,7 @@ import org.lwjgl.opengl.GL11;
 import com.github.wikimultistructure.sde.client.export.ExportTextureLocator;
 import com.github.wikimultistructure.sde.client.export.MaterialAnimationJson;
 import com.github.wikimultistructure.sde.client.export.SceneEnvelopeBuilder;
+import com.github.wikimultistructure.sde.client.export.NbtJsonSerializer;
 import com.github.wikimultistructure.sde.client.export.TextureBlobEmbedder;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedBlockInstance;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
@@ -590,6 +591,14 @@ public final class MeshCaptureService {
             if (r.facing != null && !r.facing.isEmpty()) {
                 p.addProperty("facing", r.facing);
             }
+            if (r.tileNbt != null && !r.tileNbt.hasNoTags()) {
+                try {
+                    String nbtJson = NbtJsonSerializer.toJson(r.tileNbt);
+                    p.add("nbt", JsonParser.parseString(nbtJson));
+                } catch (Exception ignored) {
+                    // NBT serialization failure shouldn't block geometry export
+                }
+            }
             p.addProperty("renderMode", "BakedQuads");
             p.add("geometry", deepCopyJsonObject(geometryForFinal.get(fi)));
             p.addProperty(
@@ -640,6 +649,7 @@ public final class MeshCaptureService {
         p.addProperty("renderMode", "BakedQuads");
         p.add("geometry", emptyGeometryJson());
         p.addProperty("occludesAdjacentFaces", false);
+        p.add("nbt", JsonNull.INSTANCE);
         return p;
     }
 
