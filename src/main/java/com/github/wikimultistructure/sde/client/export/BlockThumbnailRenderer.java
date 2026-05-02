@@ -8,6 +8,7 @@ import javax.imageio.ImageIO;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.client.shader.Framebuffer;
@@ -39,6 +40,10 @@ public final class BlockThumbnailRenderer {
      * With {@code glOrtho(..., 1000, 3000)} the model-view stack must include the same
      * {@code glTranslatef(0, 0, -2000)} as {@code GuiScreen} before item draws; otherwise 3D
      * quads fall outside the depth range and the FBO stays cleared (fully transparent PNG).
+     * <p>
+     * Off the main framebuffer, multi-texture lightmap may not be bound or may retain dim coordinates
+     * from world rendering, which darkens {@code renderBlockAsItem}. Match inventory brightness by
+     * enabling the lightmap and setting coords to full (240/240) before drawing.
      */
     public static String renderToBase64PNG(Block block, int meta) {
         if (block == null || block == Blocks.air) {
@@ -83,6 +88,9 @@ public final class BlockThumbnailRenderer {
                 GL11.glEnable(GL11.GL_DEPTH_TEST);
                 GL11.glEnable(GL11.GL_LIGHTING);
 
+                mc.entityRenderer.enableLightmap(0.0D);
+                OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.0F, 240.0F);
+
                 RenderItem renderItem = new RenderItem();
                 renderItem.zLevel = 0.0F;
                 renderItem.renderWithColor = true;
@@ -90,6 +98,7 @@ public final class BlockThumbnailRenderer {
                 int slotY = (THUMB_SIZE - 16) / 2;
                 renderItem.renderItemAndEffectIntoGUI(mc.fontRenderer, mc.renderEngine, stack, slotX, slotY);
 
+                mc.entityRenderer.disableLightmap(0.0D);
                 RenderHelper.disableStandardItemLighting();
 
                 GL11.glMatrixMode(GL11.GL_PROJECTION);
