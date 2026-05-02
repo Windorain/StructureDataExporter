@@ -3,9 +3,8 @@ package com.github.wikimultistructure.sde;
 import com.github.wikimultistructure.sde.config.SdeAutomationConfig;
 import com.github.wikimultistructure.sde.item.SdeItems;
 import com.github.wikimultistructure.sde.proxy.IProxy;
-import com.github.wikimultistructure.sde.server.command.CommandSde;
-
 import com.github.wikimultistructure.sde.server.SdeServerRecordTickHandler;
+import com.github.wikimultistructure.sde.server.command.CommandSde;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;

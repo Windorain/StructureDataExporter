@@ -41,12 +41,10 @@ public class GuiSdeCellNote extends GuiScreen {
         this.textField.setMaxStringLength(8000);
         this.textField.setText(this.initial);
         this.textField.setFocused(true);
-        this.buttonList
-            .add(
-                new GuiButton(0, cx - 100, y0 + 100, 90, 20, StatCollector.translateToLocal("sde.gui.cell_note.save")));
-        this.buttonList
-            .add(
-                new GuiButton(1, cx + 10, y0 + 100, 90, 20, StatCollector.translateToLocal("sde.gui.cell_note.cancel")));
+        this.buttonList.add(
+            new GuiButton(0, cx - 100, y0 + 100, 90, 20, StatCollector.translateToLocal("sde.gui.cell_note.save")));
+        this.buttonList.add(
+            new GuiButton(1, cx + 10, y0 + 100, 90, 20, StatCollector.translateToLocal("sde.gui.cell_note.cancel")));
     }
 
     @Override
@@ -112,8 +110,7 @@ public class GuiSdeCellNote extends GuiScreen {
         int cx = this.width / 2;
         this.drawCenteredString(
             this.fontRendererObj,
-            StatCollector.translateToLocal("sde.gui.cell_note.title")
-                + " ["
+            StatCollector.translateToLocal("sde.gui.cell_note.title") + " ["
                 + this.frameIndex
                 + " / "
                 + this.zSlice

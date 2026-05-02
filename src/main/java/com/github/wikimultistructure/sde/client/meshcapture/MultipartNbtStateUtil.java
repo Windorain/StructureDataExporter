@@ -31,8 +31,8 @@ public final class MultipartNbtStateUtil {
     private static Class<?> tileMultipartClass;
 
     /** 已警告过 "readFromNBT 未覆写" 的 TE 类名。 */
-    private static final Set<String> DIAGNOSED_READ_NBT_NOT_OVERRIDDEN = Collections.newSetFromMap(
-        new ConcurrentHashMap<String, Boolean>());
+    private static final Set<String> DIAGNOSED_READ_NBT_NOT_OVERRIDDEN = Collections
+        .newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
     private MultipartNbtStateUtil() {}
 
@@ -202,11 +202,8 @@ public final class MultipartNbtStateUtil {
             if (resolved) {
                 return;
             }
-            for (ClassLoader cl : new ClassLoader[] {
-                Thread.currentThread()
-                    .getContextClassLoader(),
-                MultipartNbtStateUtil.class.getClassLoader()
-            }) {
+            for (ClassLoader cl : new ClassLoader[] { Thread.currentThread()
+                .getContextClassLoader(), MultipartNbtStateUtil.class.getClassLoader() }) {
                 if (cl == null) {
                     continue;
                 }

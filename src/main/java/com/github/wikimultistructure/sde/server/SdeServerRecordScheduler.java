@@ -3,12 +3,12 @@ package com.github.wikimultistructure.sde.server;
 import java.util.List;
 import java.util.UUID;
 
-import com.github.wikimultistructure.sde.core.session.ExportSession;
-import com.google.gson.JsonObject;
-
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
+
+import com.github.wikimultistructure.sde.core.session.ExportSession;
+import com.google.gson.JsonObject;
 
 /**
  * 服务端 tick 驱动的连录与 cycle 调度；唯一写入经 {@link ExportSession#commitScanToFrame} /
@@ -140,16 +140,14 @@ public final class SdeServerRecordScheduler {
     private void onTickCycle(EntityPlayerMP p, ExportSession s) {
         cycleRunCount++;
         if (cycleRunCount > MAX_CYCLE_ATTEMPTS) {
-            p.addChatMessage(
-                new ChatComponentText("SDE: cycle 已超时（" + MAX_CYCLE_ATTEMPTS + " tick 内未与首帧结构一致，未落盘）"));
+            p.addChatMessage(new ChatComponentText("SDE: cycle 已超时（" + MAX_CYCLE_ATTEMPTS + " tick 内未与首帧结构一致，未落盘）"));
             clear();
             return;
         }
         JsonObject cur = s.scanToStructureJsonOnly(p);
         if (s.jsonStringForScanCompare(cur)
             .equals(cycleBaselineJson)) {
-            p.addChatMessage(
-                new ChatComponentText("SDE: cycle 已闭合（与首帧 scan 一致，" + cycleRunCount + " tick，未落盘）"));
+            p.addChatMessage(new ChatComponentText("SDE: cycle 已闭合（与首帧 scan 一致，" + cycleRunCount + " tick，未落盘）"));
             clear();
             return;
         }

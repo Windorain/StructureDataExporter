@@ -22,8 +22,8 @@ public final class SdeCellCoords {
             return null;
         }
         try {
-            return new int[] { Integer.parseInt(p[0].trim()), Integer.parseInt(p[1].trim()), Integer.parseInt(
-                p[2].trim()) };
+            return new int[] { Integer.parseInt(p[0].trim()), Integer.parseInt(p[1].trim()),
+                Integer.parseInt(p[2].trim()) };
         } catch (NumberFormatException e) {
             return null;
         }
@@ -33,17 +33,8 @@ public final class SdeCellCoords {
      * 世界方块 (wx,wy,wz) 若落在 [min..max] 选区内，则写入体素下标 (zi,ri,ci)，与 {@code cellGrid[zi][ri][ci]} 一致（行 0 为
      * 最高 y）。
      */
-    public static boolean tryWorldToCell(
-        int wx,
-        int wy,
-        int wz,
-        int minX,
-        int minY,
-        int minZ,
-        int maxX,
-        int maxY,
-        int maxZ,
-        int[] outZrc) {
+    public static boolean tryWorldToCell(int wx, int wy, int wz, int minX, int minY, int minZ, int maxX, int maxY,
+        int maxZ, int[] outZrc) {
         if (outZrc == null || outZrc.length < 3) {
             return false;
         }

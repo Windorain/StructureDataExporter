@@ -10,8 +10,7 @@ public class PacketOpenCellNoteHandler implements IMessageHandler<PacketOpenCell
 
     @Override
     public IMessage onMessage(PacketOpenCellNote m, MessageContext ctx) {
-        StructureDataExporterMod.proxy
-            .openCellNoteEditor(m.frameIndex, m.zSlice, m.row, m.column, m.initialText);
+        StructureDataExporterMod.proxy.openCellNoteEditor(m.frameIndex, m.zSlice, m.row, m.column, m.initialText);
         return null;
     }
 }

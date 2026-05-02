@@ -1,13 +1,12 @@
 package com.github.wikimultistructure.sde.proxy;
 
+import net.minecraft.client.Minecraft;
 import net.minecraftforge.common.MinecraftForge;
 
-import net.minecraft.client.Minecraft;
-
 import com.github.wikimultistructure.sde.client.SelectionClientState;
-import com.github.wikimultistructure.sde.client.gui.GuiSdeCellNote;
 import com.github.wikimultistructure.sde.client.automation.SdeClientAutomationTickHandler;
 import com.github.wikimultistructure.sde.client.export.ExportBundleTickHandler;
+import com.github.wikimultistructure.sde.client.gui.GuiSdeCellNote;
 import com.github.wikimultistructure.sde.client.meshcapture.MeshCaptureClient;
 import com.github.wikimultistructure.sde.client.render.SelectionBoxRenderer;
 import com.github.wikimultistructure.sde.network.packet.PacketSyncSelection;
@@ -45,12 +44,6 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void openCellNoteEditor(int frameIndex, int zSlice, int row, int column, String initialText) {
         Minecraft.getMinecraft()
-            .displayGuiScreen(
-                new GuiSdeCellNote(
-                    frameIndex,
-                    zSlice,
-                    row,
-                    column,
-                    initialText));
+            .displayGuiScreen(new GuiSdeCellNote(frameIndex, zSlice, row, column, initialText));
     }
 }

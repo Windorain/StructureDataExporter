@@ -48,7 +48,8 @@ public final class SdeNetwork {
         return channel != null;
     }
 
-    public static void sendOpenCellNote(EntityPlayerMP player, int frame, int zSlice, int row, int col, String initial) {
+    public static void sendOpenCellNote(EntityPlayerMP player, int frame, int zSlice, int row, int col,
+        String initial) {
         if (channel == null) {
             return;
         }

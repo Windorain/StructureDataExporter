@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.util.Base64;
+
 import javax.imageio.ImageIO;
 
 import net.minecraft.block.Block;
@@ -56,7 +57,8 @@ public final class BlockThumbnailRenderer {
         ItemStack stack = new ItemStack(item, 1, meta);
         try {
             Framebuffer fbo = getOrCreateFbo();
-            Framebuffer prevFbo = Minecraft.getMinecraft().getFramebuffer();
+            Framebuffer prevFbo = Minecraft.getMinecraft()
+                .getFramebuffer();
             Minecraft mc = Minecraft.getMinecraft();
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -130,7 +132,8 @@ public final class BlockThumbnailRenderer {
                 GL11.glPopAttrib();
             }
 
-            return Base64.getEncoder().encodeToString(baos.toByteArray());
+            return Base64.getEncoder()
+                .encodeToString(baos.toByteArray());
         } catch (Exception e) {
             e.printStackTrace();
             return null;

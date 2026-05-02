@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.world.World;
 
 import com.github.wikimultistructure.sde.core.export.PackVersionProbe;
 import com.github.wikimultistructure.sde.core.export.PendingDumpFiles;
@@ -257,8 +256,7 @@ public final class ExportSession {
                 if (zrc == null) {
                     continue;
                 }
-                if (zrc[0] < 0
-                    || zrc[0] >= sizeZ
+                if (zrc[0] < 0 || zrc[0] >= sizeZ
                     || zrc[1] < 0
                     || zrc[1] >= sizeRow
                     || zrc[2] < 0
@@ -344,8 +342,17 @@ public final class ExportSession {
         if (!hasCompleteSelection()) {
             throw new IllegalStateException("请先 /sde pos1 与 /sde pos2（或 hpos/选区工具）");
         }
-        return StructureScan
-            .scanToStructureJson(player.worldObj, pos1x, pos1y, pos1z, pos2x, pos2y, pos2z, structureId, sampler, player);
+        return StructureScan.scanToStructureJson(
+            player.worldObj,
+            pos1x,
+            pos1y,
+            pos1z,
+            pos2x,
+            pos2y,
+            pos2z,
+            structureId,
+            sampler,
+            player);
     }
 
     /**

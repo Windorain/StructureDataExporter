@@ -17,12 +17,12 @@ import java.util.Map;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
-import net.minecraft.item.ItemStack;
 import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.init.Blocks;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -31,12 +31,12 @@ import net.minecraft.world.World;
 
 import org.lwjgl.opengl.GL11;
 
+import com.github.wikimultistructure.sde.client.export.BlockThumbnailRenderer;
 import com.github.wikimultistructure.sde.client.export.ExportTextureLocator;
 import com.github.wikimultistructure.sde.client.export.MaterialAnimationJson;
-import com.github.wikimultistructure.sde.client.export.SceneEnvelopeBuilder;
 import com.github.wikimultistructure.sde.client.export.NbtJsonSerializer;
+import com.github.wikimultistructure.sde.client.export.SceneEnvelopeBuilder;
 import com.github.wikimultistructure.sde.client.export.TextureBlobEmbedder;
-import com.github.wikimultistructure.sde.client.export.BlockThumbnailRenderer;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedBlockInstance;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedQuad;
 import com.github.wikimultistructure.sde.client.meshcapture.TessellatorCaptureState.CapturedVertex;
@@ -44,8 +44,8 @@ import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptu
 import com.github.wikimultistructure.sde.client.meshcapture.postrender.MeshCaptureBlockPostRenderRegistry;
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureContext;
 import com.github.wikimultistructure.sde.client.meshcapture.primary.BlockPrimaryCaptureRegistry;
-import com.github.wikimultistructure.sde.core.session.SdeCellCoords;
 import com.github.wikimultistructure.sde.core.sampling.VoxelSample;
+import com.github.wikimultistructure.sde.core.session.SdeCellCoords;
 import com.github.wikimultistructure.sde.mixin.interfaces.accessors.TextureMapAccessor;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -313,8 +313,7 @@ public final class MeshCaptureService {
                     continue;
                 }
                 int[] zrc = SdeCellCoords.tryParseCellKey(e.getKey());
-                if (zrc == null
-                    || zrc[0] < 0
+                if (zrc == null || zrc[0] < 0
                     || zrc[0] >= sizeZ
                     || zrc[1] < 0
                     || zrc[1] >= sizeRow
@@ -357,8 +356,9 @@ public final class MeshCaptureService {
     }
 
     private static void integrateSdeCellNotesSingleBakedRoot(JsonObject root) {
-        if (root == null || !root.has("sdeCellNotes") || !root.get("sdeCellNotes")
-            .isJsonObject()) {
+        if (root == null || !root.has("sdeCellNotes")
+            || !root.get("sdeCellNotes")
+                .isJsonObject()) {
             return;
         }
         List<String> palette = new ArrayList<>();
@@ -488,7 +488,8 @@ public final class MeshCaptureService {
                 }
             }
             try {
-                TessellatorCaptureState.beginBlock(wx, wy, wz, label, wx, wy, wz, b, blockMeta, renderType, vs.registryId);
+                TessellatorCaptureState
+                    .beginBlock(wx, wy, wz, label, wx, wy, wz, b, blockMeta, renderType, vs.registryId);
                 Tessellator tess = Tessellator.instance;
                 tess.startDrawingQuads();
                 BlockPrimaryCaptureRegistry.dispatch(
@@ -755,15 +756,20 @@ public final class MeshCaptureService {
         JsonObject geometry, List<String> tooltip) {
         try {
             StringBuilder sb = new StringBuilder();
-            sb.append(registryId).append('\0');
-            sb.append(meta).append('\0');
-            sb.append(geometrySignature(geometry)).append('\0');
+            sb.append(registryId)
+                .append('\0');
+            sb.append(meta)
+                .append('\0');
+            sb.append(geometrySignature(geometry))
+                .append('\0');
             if (tileNbt != null && !tileNbt.hasNoTags()) {
-                sb.append(NbtJsonSerializer.toJson(tileNbt)).append('\0');
+                sb.append(NbtJsonSerializer.toJson(tileNbt))
+                    .append('\0');
             }
             if (tooltip != null && !tooltip.isEmpty()) {
                 for (String line : tooltip) {
-                    sb.append(line).append('\n');
+                    sb.append(line)
+                        .append('\n');
                 }
             }
             return sha256Base64(sb.toString());
@@ -775,18 +781,30 @@ public final class MeshCaptureService {
     private static String entryEqualitySignature(JsonObject entry) {
         try {
             StringBuilder sb = new StringBuilder();
-            sb.append(entry.get("registryId").getAsString()).append('\0');
-            sb.append(entry.get("meta").getAsInt()).append('\0');
+            sb.append(
+                entry.get("registryId")
+                    .getAsString())
+                .append('\0');
+            sb.append(
+                entry.get("meta")
+                    .getAsInt())
+                .append('\0');
             JsonObject geom = entry.getAsJsonObject("geometry");
-            sb.append(geometrySignature(geom)).append('\0');
-            if (entry.has("nbt") && !entry.get("nbt").isJsonNull()
-                && !isEmptyJsonObject(entry.get("nbt"))) {
-                sb.append(entry.get("nbt").toString()).append('\0');
+            sb.append(geometrySignature(geom))
+                .append('\0');
+            if (entry.has("nbt") && !entry.get("nbt")
+                .isJsonNull() && !isEmptyJsonObject(entry.get("nbt"))) {
+                sb.append(
+                    entry.get("nbt")
+                        .toString())
+                    .append('\0');
             }
-            if (entry.has("tooltip") && entry.get("tooltip").isJsonArray()) {
+            if (entry.has("tooltip") && entry.get("tooltip")
+                .isJsonArray()) {
                 JsonArray tt = entry.getAsJsonArray("tooltip");
                 for (JsonElement e : tt) {
-                    sb.append(e.getAsString()).append('\n');
+                    sb.append(e.getAsString())
+                        .append('\n');
                 }
             }
             return sha256Base64(sb.toString());
@@ -796,7 +814,9 @@ public final class MeshCaptureService {
     }
 
     private static boolean isEmptyJsonObject(JsonElement e) {
-        return e.isJsonObject() && e.getAsJsonObject().entrySet().isEmpty();
+        return e.isJsonObject() && e.getAsJsonObject()
+            .entrySet()
+            .isEmpty();
     }
 
     private static double quant4(JsonElement e) {

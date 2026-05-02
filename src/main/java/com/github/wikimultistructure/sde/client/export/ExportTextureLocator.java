@@ -183,8 +183,10 @@ public final class ExportTextureLocator {
         while (path.startsWith("textures/")) {
             path = path.substring("textures/".length());
         }
-        /* 1.7.10 中许多 {@link IIcon#getIconName()} 为 modid:baseName:worldMeta，磁盘 PNG 无 :meta 后缀。仅剥去 0–15
-         * 的尾段，避免误伤 GregTech 等 {@code mID} 四位数。见 debug：ic2:blockAlloyGlass:0 → .../blockAlloyGlass.png。 */
+        /*
+         * 1.7.10 中许多 {@link IIcon#getIconName()} 为 modid:baseName:worldMeta，磁盘 PNG 无 :meta 后缀。仅剥去 0–15
+         * 的尾段，避免误伤 GregTech 等 {@code mID} 四位数。见 debug：ic2:blockAlloyGlass:0 → .../blockAlloyGlass.png。
+         */
         path = stripWorldMetaSuffixInPathForBundle(path);
         if (!pathHasExplicitTextureRoot(path)) {
             path = "blocks/" + path;

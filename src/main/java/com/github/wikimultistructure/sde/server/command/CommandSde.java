@@ -3,8 +3,6 @@ package com.github.wikimultistructure.sde.server.command;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-import com.google.gson.JsonObject;
-
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -23,6 +21,7 @@ import com.github.wikimultistructure.sde.network.SdeNetwork;
 import com.github.wikimultistructure.sde.server.SdePermissions;
 import com.github.wikimultistructure.sde.server.SdeServerRecordScheduler;
 import com.github.wikimultistructure.sde.server.web.SdeWebServer;
+import com.google.gson.JsonObject;
 
 public class CommandSde extends CommandBase {
 
@@ -74,17 +73,14 @@ public class CommandSde extends CommandBase {
                         if ("extend".equals(a)) {
                             mode = SdeSelectionMode.EXTEND;
                         } else if (!"cuboid".equals(a)) {
-                            sender.addChatMessage(
-                                new ChatComponentText("SDE: 用法: /sde sel [cuboid|extend]（默認 cuboid）"));
+                            sender
+                                .addChatMessage(new ChatComponentText("SDE: 用法: /sde sel [cuboid|extend]（默認 cuboid）"));
                             return;
                         }
                     }
                     s.setSelectionMode(mode);
                     sender.addChatMessage(
-                        new ChatComponentText(
-                            "SDE: 选区模式="
-                                + mode
-                                + "（cuboid=两角点；extend=新点并入并扩张 AABB，对齐 //sel）"));
+                        new ChatComponentText("SDE: 选区模式=" + mode + "（cuboid=两角点；extend=新点并入并扩张 AABB，对齐 //sel）"));
                     if (sender instanceof EntityPlayerMP) {
                         SdeNetwork.sendSelectionSync((EntityPlayerMP) sender);
                     }
@@ -145,7 +141,8 @@ public class CommandSde extends CommandBase {
                         }
                         sender.addChatMessage(
                             new ChatComponentText(
-                                "SDE: cycle 已启动（首帧 F" + f0 + " 已写入；自下一 tick 起比较 scan，最多 "
+                                "SDE: cycle 已启动（首帧 F" + f0
+                                    + " 已写入；自下一 tick 起比较 scan，最多 "
                                     + SdeServerRecordScheduler.MAX_CYCLE_ATTEMPTS
                                     + " tick，未落盘）"));
                         break;
@@ -155,7 +152,9 @@ public class CommandSde extends CommandBase {
                         try {
                             n = Integer.parseInt(args[1]);
                         } catch (NumberFormatException ex) {
-                            sender.addChatMessage(new ChatComponentText("SDE: record 用法: /sde record | /sde record <N> | /sde record cycle"));
+                            sender.addChatMessage(
+                                new ChatComponentText(
+                                    "SDE: record 用法: /sde record | /sde record <N> | /sde record cycle"));
                             return;
                         }
                         if (n <= 0) {
@@ -179,7 +178,8 @@ public class CommandSde extends CommandBase {
                                 "SDE: 连录已启动 " + n + " tick（自下一 tick 写入 F" + f0b + "–F" + (f0b + n - 1) + "，未落盘）"));
                         break;
                     }
-                    sender.addChatMessage(new ChatComponentText("SDE: record 用法: /sde record | /sde record <N> | /sde record cycle"));
+                    sender.addChatMessage(
+                        new ChatComponentText("SDE: record 用法: /sde record | /sde record <N> | /sde record cycle"));
                     break;
                 }
                 case "export":

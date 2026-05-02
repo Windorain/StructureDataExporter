@@ -59,8 +59,8 @@ public class ItemSdeNoter extends Item {
             return true;
         }
         int[] zrc = new int[3];
-        if (!SdeCellCoords.tryWorldToCell(x, y, z, snap.minX, snap.minY, snap.minZ, snap.maxX, snap.maxY, snap.maxZ,
-            zrc)) {
+        if (!SdeCellCoords
+            .tryWorldToCell(x, y, z, snap.minX, snap.minY, snap.minZ, snap.maxX, snap.maxY, snap.maxZ, zrc)) {
             mp.addChatMessage(new ChatComponentText("SDE: 该方块不在当前选区内"));
             return true;
         }

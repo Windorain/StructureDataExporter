@@ -7,7 +7,8 @@ import net.minecraft.util.Vec3;
 
 /**
  * 玩家视线与方块交点。{@link EntityLivingBase#rayTrace} 在 Forge 1.7.10 为客户端专用；服务端选区需自行从眼高发射，
- * 并与 {@link net.minecraft.client.renderer.EntityRenderer#getMouseOver} 所用距离一致（即 {@code ItemInWorldManager#getBlockReachDistance}，生存约 4.5、创造 5.0）。
+ * 并与 {@link net.minecraft.client.renderer.EntityRenderer#getMouseOver} 所用距离一致（即
+ * {@code ItemInWorldManager#getBlockReachDistance}，生存约 4.5、创造 5.0）。
  */
 public final class RayTraceUtil {
 
@@ -27,8 +28,7 @@ public final class RayTraceUtil {
      * @param reach 最大射线长度（体素段内首块，一般与 {@link #blockReachFor} 相同即可对齐准星）
      */
     public static MovingObjectPosition rayTraceBlock(EntityPlayer player, double reach) {
-        Vec3 start =
-            Vec3.createVectorHelper(player.posX, player.posY + (double) player.getEyeHeight(), player.posZ);
+        Vec3 start = Vec3.createVectorHelper(player.posX, player.posY + (double) player.getEyeHeight(), player.posZ);
         Vec3 look = player.getLook(1.0F);
         Vec3 end = start.addVector(look.xCoord * reach, look.yCoord * reach, look.zCoord * reach);
         // 与 net.minecraft.entity.EntityLivingBase#rayTrace 中 World#func_147447_a 参数一致
