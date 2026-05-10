@@ -150,14 +150,15 @@ public final class ExportTextureLocator {
      * <p>
      * <b>处理规则</b>：去掉 path 段重复的 {@code textures/}；若 path 不以显式纹理根（{@code blocks/}、{@code items/}、{@code models/}、
      * {@code entity/} 等，与 Wiki {@code resolveAssets} 一致）开头，则补上 {@code blocks/}。{@code models/…} 对应磁盘
-     * {@code assets/&lt;ns&gt;/models/…png}，不得误加 {@code blocks/} 前缀。GregTech {@code materialicons/…} 在
+     * {@code assets/&lt;ns&gt;/models/…png}，不得误加 {@code blocks/} 前缀。Botania 等使用 {@code textures/model/…}
+     *（单数 {@code model/}，与 {@code models/} 不同）。GregTech {@code materialicons/…} 在
      * {@code textures/blocks/materialicons/} 与 {@code textures/items/materialicons/} 均可能出现，见
      * {@link #texturePngResourceLocationsForBundle}。
      * <p>
      * 可多次调用，幂等。
      */
     private static final String[] EXPLICIT_TEXTURE_PATH_ROOTS = new String[] { "blocks/", "items/", "materialicons/",
-        "models/", "entity/", "gui/", "misc/", "environment/", "font/", "map/", "painting/", "particle/",
+        "models/", "model/", "entity/", "gui/", "misc/", "environment/", "font/", "map/", "painting/", "particle/",
         "colormap/", };
 
     private static boolean pathHasExplicitTextureRoot(String path) {
@@ -242,6 +243,11 @@ public final class ExportTextureLocator {
         List<ResourceLocation> out = new ArrayList<>(2);
         if (path.startsWith("models/")) {
             /* 与方块纹理一致：磁盘为 assets/<ns>/textures/models/...png，非 assets/<ns>/models/... */
+            out.add(new ResourceLocation(ns, "textures/" + path + ".png"));
+            return out;
+        }
+        if (path.startsWith("model/")) {
+            /* Botania：assets/<ns>/textures/model/...png（如 hourglass），非 textures/blocks/model/... */
             out.add(new ResourceLocation(ns, "textures/" + path + ".png"));
             return out;
         }

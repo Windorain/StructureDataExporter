@@ -29,4 +29,12 @@ dependencies {
     // 与 GT5-Unofficial dependencies.gradle 中 compileOnlyApi / runtime 测试条目对齐：末影接口（Ender IO）、红石工程（Project Red）
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:EnderIO:2.10.18:dev")
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:ProjectRed:4.12.24-GTNH:dev")
+
+    // 植物魔法：Botania（仓库 github.com/GTNewHorizons/Botania）；运行需 Baubles-Expanded（与 GT5-Unofficial 中 Botania 条目版本对齐）
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:Baubles-Expanded:2.2.13-GTNH:dev")
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:Botania:1.13.16-GTNH:dev")
+
+    // 植物学：宾尼（Binnie，含 Botany / Genetics 等）；需林业（ForestryMC）作为 API 依赖
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:ForestryMC:4.11.15:dev")
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:Binnie:2.6.24:dev")
 }
